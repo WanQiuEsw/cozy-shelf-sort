@@ -2,12 +2,13 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { SHELF_CAPACITY, ITEMS, LEVELS } = require('./levels.js');
+const { SHELF_CAPACITY, THEMES, ITEMS, LEVELS, createDailyLevel } = require('./levels.js');
 const {
   BOOSTER_COSTS,
   createGameState,
   getRowWidth,
   getRemainingWidth,
+  isShelfLocked,
   canMoveItem,
   moveItem,
   isDeadlocked,
@@ -17,11 +18,13 @@ const {
   findBestHint,
   canAutoComplete,
   validateLevel,
+  getThreeStarMoves,
   calculateStars,
 } = require('./game.js');
 
-test('all 6 levels pass structural validation and start playable', () => {
-  assert.equal(LEVELS.length, 6);
+test('all 12 levels pass structural validation and start playable across 4 themes', () => {
+  assert.equal(LEVELS.length, 12);
+  assert.ok(THEMES.bakery && ITEMS.swiss_roll && ITEMS.cake_box);
   for (let i = 0; i < LEVELS.length; i += 1) {
     const result = validateLevel(LEVELS[i]);
     assert.equal(result.valid, true, `Level ${i + 1} errors: ${result.errors.join('; ')}`);
@@ -289,4 +292,33 @@ test('batch move transfers multiple matching items in one move and canAutoComple
   assert.deepEqual(s.shelves[3].layers[0], ['cola', 'cola']);
   assert.deepEqual(s.shelves[0].layers[0], ['yogurt']);
   assert.ok(BOOSTER_COSTS.undo > 0 && BOOSTER_COSTS.expand > 0);
+});
+
+test('locked shelves block moves until required packs are cleared and daily challenge generator is deterministic', () => {
+  // Level 9 (index 8) has shelf-5 locked until 1 pack is cleared
+  const s9 = createGameState(8);
+  assert.equal(isShelfLocked(s9, s9.shelves[5]), true);
+  assert.equal(canMoveItem(s9, 'shelf-5', 0, 'shelf-4'), false);
+  assert.equal(canMoveItem(s9, 'shelf-4', 0, 'shelf-5'), false);
+
+  // Free shelf-0's 1-unit item so we can pack 2x cat_food_big on shelf-0
+  assert.equal(moveItem(s9, 'shelf-0', 1, 'shelf-4').ok, true); // cat_strip -> shelf-4
+  const packRes = moveItem(s9, 'shelf-1', 0, 'shelf-0'); // cat_food_big -> shelf-0 => PACK!
+  assert.ok(packRes.packed);
+  assert.deepEqual(packRes.unlockedShelfIds, ['shelf-5']);
+  assert.equal(isShelfLocked(s9, s9.shelves[5]), false);
+  assert.equal(canMoveItem(s9, 'shelf-5', 1, 'shelf-1'), true);
+
+  // Daily level generator produces valid, playable, deterministic boards
+  const d1 = createDailyLevel('2026-11-24');
+  const d2 = createDailyLevel('2026-11-24');
+  assert.deepEqual(d1, d2);
+  assert.equal(validateLevel(d1).valid, true);
+  const ds = createGameState(0, null, d1);
+  assert.equal(ds.isDaily, true);
+  assert.equal(ds.mysteryBack, true);
+  assert.equal(isDeadlocked(ds), false);
+  assert.equal(getThreeStarMoves(7, 20), 20);
+  assert.equal(calculateStars(20, 7, 20), 3);
+  assert.equal(calculateStars(21, 7, 20), 2);
 });

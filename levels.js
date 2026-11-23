@@ -34,6 +34,16 @@
       shelfBorder: '#f4c7d8',
       ledgeBg: 'linear-gradient(180deg, #f9d5e2 0%, #e7a4be 100%)',
     },
+    bakery: {
+      id: 'bakery',
+      name: '甜品烘焙坊',
+      subtitle: '暖杏奶油 · 糕点礼盒归类',
+      accent: '#c2612c',
+      bgGradient: 'linear-gradient(180deg, #fff6e8 0%, #fffdf8 100%)',
+      shelfBg: 'rgba(255, 252, 245, 0.86)',
+      shelfBorder: '#f0d4b4',
+      ledgeBg: 'linear-gradient(180deg, #f5cfa6 0%, #d99b66 100%)',
+    },
   };
 
   const ITEMS = {
@@ -62,6 +72,14 @@
     brush: { id: 'brush', name: '蜜粉刷', emoji: '🖌️', width: 1, bg: '#e8efff', border: '#7b9df0', accent: '#1d4ed8' },
     mask_box: { id: 'mask_box', name: '礼盒面膜', emoji: '🎁', width: 2, bg: '#ffe5f0', border: '#ec6fa4', accent: '#9d174d' },
     toner_set: { id: 'toner_set', name: '水乳套盒', emoji: '🎀', width: 2, bg: '#f3e8ff', border: '#a86ee3', accent: '#6b21a8' },
+
+    // 甜品烘焙坊
+    dango: { id: 'dango', name: '草莓大福', emoji: '🍓', width: 1, bg: '#ffe6eb', border: '#f2849e', accent: '#be123c' },
+    pudding: { id: 'pudding', name: '焦糖布丁', emoji: '🍮', width: 1, bg: '#fff3d6', border: '#ebb450', accent: '#b45309' },
+    macaron: { id: 'macaron', name: '开心果马卡龙', emoji: '🧁', width: 1, bg: '#e8f8ec', border: '#74c686', accent: '#15803d' },
+    croissant: { id: 'croissant', name: '黄油可颂', emoji: '🥐', width: 1, bg: '#ffedd5', border: '#e89d54', accent: '#9a3412' },
+    swiss_roll: { id: 'swiss_roll', name: '抹茶瑞士卷', emoji: '🍰', width: 2, bg: '#e6f6e4', border: '#6ab861', accent: '#166534' },
+    cake_box: { id: 'cake_box', name: '缤纷蛋糕盒', emoji: '🎂', width: 2, bg: '#ffe8f2', border: '#e577a6', accent: '#9d174d' },
   };
 
   // layers[0] is the interactive front row; layers[1..] are shadowed back rows that slide forward once front is cleared.
@@ -72,6 +90,7 @@
       theme: 'fridge',
       tip: '点击商品选中，再点空余货架移入；凑满 4 格同款自动打包！',
       isElite: false,
+      parMoves: 10,
       shelves: [
         [['cola', 'cola', 'yogurt'], ['juice', 'cola']],
         [['yogurt', 'yogurt', 'juice'], ['cola', 'yogurt']],
@@ -85,6 +104,7 @@
       theme: 'fridge',
       tip: '注意！大桶鲜奶占 2 格空间，需留出至少 2 格空位才能放进去。',
       isElite: false,
+      parMoves: 15,
       shelves: [
         [['milk_big', 'cola'], ['milk_big', 'onigiri']],
         [['milk_big', 'yogurt'], ['yogurt', 'cola']],
@@ -99,6 +119,7 @@
       theme: 'catcafe',
       tip: '先腾出 2 格空位搬运大袋猫粮，别把 1 格空位全堵死哦~',
       isElite: false,
+      parMoves: 18,
       shelves: [
         [['cat_food_big', 'cat_strip', 'fish_can'], ['paw_cookie']],
         [['cat_food_big', 'paw_cookie'], ['fish_can', 'latte']],
@@ -114,6 +135,7 @@
       theme: 'catcafe',
       tip: '留意货架后方暗影里的商品，清空前排就能把深层货推出来。',
       isElite: false,
+      parMoves: 21,
       shelves: [
         [['cat_food_big', 'cat_strip'], ['fish_can', 'paw_cookie'], ['litter_box']],
         [['litter_box', 'fish_can'], ['cat_food_big'], ['cat_strip', 'latte']],
@@ -129,6 +151,7 @@
       theme: 'vanity',
       tip: '水乳套盒和礼盒面膜都占 2 格，卡住时试试底部的「+1临时格」！',
       isElite: false,
+      parMoves: 21,
       shelves: [
         [['mask_box', 'lipstick'], ['perfume', 'cream'], ['serum', 'powder']],
         [['toner_set', 'perfume'], ['mask_box'], ['cream', 'lipstick']],
@@ -144,6 +167,7 @@
       theme: 'vanity',
       tip: '精英挑战关：初始仅 3 处散落空位，考验大件空间预留与层深规划！',
       isElite: true,
+      parMoves: 24,
       shelves: [
         [['mask_box', 'lipstick', 'perfume'], ['cream', 'serum'], ['toner_set']],
         [['toner_set', 'powder'], ['mask_box'], ['lipstick', 'brush']],
@@ -154,9 +178,198 @@
         [['lipstick', 'perfume', 'serum']],
       ],
     },
+    {
+      id: 7,
+      title: '第 7 关 · 烘焙早班',
+      theme: 'bakery',
+      tip: '新场景甜品烘焙坊开启！优先合并 2 格抹茶瑞士卷腾出流转空间。',
+      isElite: false,
+      parMoves: 18,
+      shelves: [
+        [['swiss_roll', 'dango', 'pudding'], ['macaron', 'croissant']],
+        [['swiss_roll', 'macaron'], ['dango', 'pudding']],
+        [['croissant', 'dango', 'swiss_roll'], ['macaron']],
+        [['pudding', 'swiss_roll', 'croissant']],
+        [['dango', 'macaron', 'croissant']],
+        [['pudding']],
+      ],
+    },
+    {
+      id: 8,
+      title: '第 8 关 · 盲盒冰柜',
+      theme: 'fridge',
+      tip: '进阶挑战：后排商品隐藏为「❓盲盒」，清空前排才能揭晓庐山真面目！',
+      isElite: false,
+      mysteryBack: true,
+      parMoves: 20,
+      shelves: [
+        [['milk_big', 'cola', 'yogurt'], ['juice', 'onigiri'], ['matcha', 'cola']],
+        [['milk_big', 'juice'], ['yogurt', 'matcha'], ['onigiri']],
+        [['onigiri', 'matcha', 'milk_big'], ['cola', 'juice']],
+        [['yogurt', 'milk_big', 'cola'], ['matcha']],
+        [['juice', 'onigiri', 'yogurt']],
+        [[]],
+      ],
+    },
+    {
+      id: 9,
+      title: '第 9 关 · 锁格猫咖',
+      theme: 'catcafe',
+      tip: '右下角货架被锁扣封住啦！先在场上完成 1 次打包即可自动解锁。',
+      isElite: false,
+      lockedShelves: { 5: 1 },
+      parMoves: 20,
+      shelves: [
+        [['cat_food_big', 'cat_strip'], ['fish_can', 'paw_cookie'], ['litter_box']],
+        [['cat_food_big', 'fish_can'], ['cat_strip', 'latte']],
+        [['paw_cookie', 'latte', 'cat_food_big'], ['fish_can']],
+        [['cat_strip', 'cat_food_big'], ['paw_cookie', 'latte']],
+        [['fish_can', 'paw_cookie', 'latte']],
+        [['litter_box', 'cat_strip']],
+      ],
+    },
+    {
+      id: 10,
+      title: '第 10 关 · 甜点双礼盒',
+      theme: 'bakery',
+      tip: '抹茶瑞士卷与缤纷蛋糕盒双大件齐上阵，配合盲盒后排考验记忆力！',
+      isElite: false,
+      mysteryBack: true,
+      parMoves: 22,
+      shelves: [
+        [['swiss_roll', 'dango'], ['pudding', 'macaron'], ['cake_box']],
+        [['cake_box', 'pudding'], ['swiss_roll'], ['dango', 'croissant']],
+        [['macaron', 'croissant', 'swiss_roll'], ['pudding']],
+        [['dango', 'cake_box', 'macaron'], ['croissant']],
+        [['pudding', 'swiss_roll', 'dango'], ['cake_box']],
+        [['croissant', 'macaron']],
+        [[]],
+      ],
+    },
+    {
+      id: 11,
+      title: '第 11 关 · 彩妆盲盒锁',
+      theme: 'vanity',
+      tip: '精英前哨战：盲盒遮挡 + 2箱解锁封条，善用双击连携与金币道具！',
+      isElite: true,
+      mysteryBack: true,
+      lockedShelves: { 6: 2 },
+      parMoves: 22,
+      shelves: [
+        [['mask_box', 'lipstick'], ['perfume', 'cream'], ['toner_set']],
+        [['mask_box', 'perfume'], ['lipstick', 'serum'], ['powder']],
+        [['cream', 'serum', 'mask_box'], ['lipstick', 'powder']],
+        [['powder', 'mask_box', 'cream'], ['perfume']],
+        [['lipstick', 'perfume', 'serum']],
+        [['cream', 'powder']],
+        [['toner_set', 'serum']],
+      ],
+    },
+    {
+      id: 12,
+      title: '第 12 关 · 终极店长考核',
+      theme: 'bakery',
+      tip: '终极 Boss 关：8 货架 + 双重阶梯锁架 + 盲盒深层，冲击零道具金冠吧！',
+      isElite: true,
+      mysteryBack: true,
+      lockedShelves: { 6: 1, 7: 2 },
+      parMoves: 25,
+      shelves: [
+        [['swiss_roll', 'dango'], ['pudding', 'macaron'], ['cake_box']],
+        [['swiss_roll', 'pudding'], ['dango', 'croissant'], ['matcha']],
+        [['macaron', 'swiss_roll', 'croissant'], ['pudding', 'matcha']],
+        [['dango', 'cake_box', 'pudding'], ['macaron']],
+        [['croissant', 'swiss_roll', 'matcha']],
+        [['dango', 'macaron']],
+        [['cake_box', 'croissant']],
+        [['cake_box', 'matcha']],
+      ],
+    },
   ];
 
-  const api = { SHELF_CAPACITY, THEMES, ITEMS, LEVELS };
+  function createDailyLevel(dateStr) {
+    const key = String(dateStr || new Date().toISOString().slice(0, 10));
+    let seed = 2166136261;
+    for (let i = 0; i < key.length; i += 1) {
+      seed ^= key.charCodeAt(i);
+      seed = Math.imul(seed, 16777619) >>> 0;
+    }
+    const rng = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    const pickShuffle = (arr) => {
+      const copy = arr.slice();
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(rng() * (i + 1));
+        const tmp = copy[i];
+        copy[i] = copy[j];
+        copy[j] = tmp;
+      }
+      return copy;
+    };
+
+    const themePools = [
+      { theme: 'fridge', wide: 'milk_big', narrow: ['cola', 'yogurt', 'juice', 'onigiri', 'matcha'] },
+      { theme: 'catcafe', wide: 'cat_food_big', narrow: ['cat_strip', 'fish_can', 'paw_cookie', 'latte', 'cola'] },
+      { theme: 'vanity', wide: 'mask_box', narrow: ['lipstick', 'perfume', 'cream', 'serum', 'powder'] },
+      { theme: 'bakery', wide: 'swiss_roll', narrow: ['dango', 'pudding', 'macaron', 'croissant', 'matcha'] },
+    ];
+    const pool = themePools[Math.floor(rng() * themePools.length)];
+    const widePool = [pool.wide, pool.wide, pool.wide, pool.wide];
+    const narrowPool = [];
+    for (const id of pool.narrow) {
+      narrowPool.push(id, id, id, id);
+    }
+
+    const ordered = [...pickShuffle(widePool), ...pickShuffle(narrowPool)];
+    // 6 active layers on 6 shelves (front + back) + 1 empty 7th shelf
+    const slots = Array.from({ length: 10 }, () => ({ items: [], used: 0 }));
+    const slotOrder = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+    for (const itemId of ordered) {
+      const w = ITEMS[itemId].width;
+      const candidates = pickShuffle(slotOrder).filter((idx) => {
+        const slot = slots[idx];
+        const cap = idx < 6 ? 3 : 4; // Front rows leave at least 1 gap so opening is never deadlocked
+        if (cap - slot.used < w) return false;
+        const next = [...slot.items, itemId];
+        const nextW = slot.used + w;
+        if (nextW === SHELF_CAPACITY && next.every((x) => x === next[0])) return false;
+        return true;
+      });
+      const chosen = candidates.length > 0
+        ? candidates[0]
+        : slotOrder.find((idx) => SHELF_CAPACITY - slots[idx].used >= w);
+      slots[chosen].items.push(itemId);
+      slots[chosen].used += w;
+    }
+
+    const shelves = [];
+    for (let s = 0; s < 6; s += 1) {
+      const layers = [slots[s].items];
+      if (s < 4 && slots[s + 6].items.length > 0) {
+        layers.push(slots[s + 6].items);
+      }
+      shelves.push(layers);
+    }
+    shelves.push([[]]);
+
+    return {
+      id: `daily-${key}`,
+      isDaily: true,
+      dateKey: key,
+      title: `📅 每日挑战 · ${key.slice(5)}`,
+      theme: pool.theme,
+      tip: '每日盲盒挑战：全球同日同种子布局，冲击今日最少步数与最快纪录！',
+      isElite: true,
+      mysteryBack: true,
+      parMoves: 21,
+      shelves,
+    };
+  }
+
+  const api = { SHELF_CAPACITY, THEMES, ITEMS, LEVELS, createDailyLevel };
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;

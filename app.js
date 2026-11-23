@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const { THEMES, ITEMS, LEVELS } = window.ShelfLevels;
+  const { THEMES, ITEMS, LEVELS, createDailyLevel } = window.ShelfLevels;
   const {
     DEFAULT_BOOSTERS,
     BOOSTER_COSTS,
@@ -9,6 +9,7 @@
     getRowWidth,
     getRemainingWidth,
     isRowPacked,
+    isShelfLocked,
     getAllShelves,
     findShelf,
     canMoveItem,
@@ -19,6 +20,7 @@
     shuffleFrontRows,
     findBestHint,
     canAutoComplete,
+    getThreeStarMoves,
     calculateStars,
   } = window.ShelfGame;
 
@@ -34,6 +36,7 @@
     startCoinStat: document.getElementById('startCoinStat'),
     startGameBtn: document.getElementById('startGameBtn'),
     startLevelBtn: document.getElementById('startLevelBtn'),
+    startDailyBtn: document.getElementById('startDailyBtn'),
     homeBtn: document.getElementById('homeBtn'),
     levelSwitchBtn: document.getElementById('levelSwitchBtn'),
     levelTitle: document.getElementById('levelTitle'),
@@ -256,10 +259,16 @@
     persistSave();
   }
 
-  function startLevel(index) {
-    save.currentLevelIndex = Math.max(0, Math.min(index, LEVELS.length - 1));
-    persistSave();
-    state = createGameState(save.currentLevelIndex, save.boosters);
+  function getCurrentLevel() {
+    return state.customLevel || LEVELS[state.levelIndex];
+  }
+
+  function startLevel(index, customLevel = null) {
+    if (!customLevel) {
+      save.currentLevelIndex = Math.max(0, Math.min(index, LEVELS.length - 1));
+      persistSave();
+    }
+    state = createGameState(save.currentLevelIndex, save.boosters, customLevel);
     selected = null;
     clearHint();
     animFlags = {
@@ -275,11 +284,30 @@
     render();
   }
 
+  function startDailyChallenge() {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const dailyLevel = createDailyLevel(todayKey);
+    startLevel(save.currentLevelIndex, dailyLevel);
+    showToast(`📅 已进入 ${todayKey} 每日盲盒挑战！`);
+  }
+
   function createItemNode(itemId, options = {}) {
     const item = ITEMS[itemId];
     const node = document.createElement('div');
     node.className = 'item-tile';
     if (item.width === 2) node.classList.add('item-tile--wide');
+    if (options.isMystery) {
+      node.classList.add('item-tile--mystery');
+      const emoji = document.createElement('span');
+      emoji.className = 'item-emoji';
+      emoji.textContent = '❓';
+      node.appendChild(emoji);
+      const name = document.createElement('span');
+      name.className = 'item-name';
+      name.textContent = item.width === 2 ? '大件盲盒' : '盲盒';
+      node.appendChild(name);
+      return node;
+    }
     if (options.isSelected) node.classList.add('item-tile--selected');
     if (options.isMatch) node.classList.add('item-tile--match');
     if (options.isLanded) node.classList.add('item-tile--landed');
@@ -380,10 +408,24 @@
     if (animFlags.packedShelfId === shelf.id) card.classList.add('shelf-card--packed');
     if (animFlags.revealedIds.has(shelf.id)) card.classList.add('shelf-card--revealed');
 
+    const locked = isShelfLocked(state, shelf);
+    if (locked) {
+      card.classList.add('shelf-card--locked');
+      const overlay = document.createElement('div');
+      overlay.className = 'lock-overlay';
+      const pill = document.createElement('span');
+      pill.className = 'lock-pill';
+      pill.textContent = `🔒 再打包 ${shelf.unlockAtPacks - state.packsCleared} 箱解锁`;
+      overlay.appendChild(pill);
+      card.appendChild(overlay);
+    }
+
     if (!shelf.isTemp && shelf.layers.length > 1) {
       const badge = document.createElement('span');
       badge.className = 'depth-badge';
-      badge.textContent = `后方 +${shelf.layers.length - 1}层`;
+      badge.textContent = state.mysteryBack
+        ? `❓盲盒 +${shelf.layers.length - 1}层`
+        : `后方 +${shelf.layers.length - 1}层`;
       card.appendChild(badge);
     }
 
@@ -394,7 +436,7 @@
       const peek = document.createElement('div');
       peek.className = 'back-peek-row';
       for (const id of shelf.layers[1]) {
-        peek.appendChild(createItemNode(id, { isPreview: true }));
+        peek.appendChild(createItemNode(id, { isPreview: true, isMystery: state.mysteryBack }));
       }
       stage.appendChild(peek);
     }
@@ -483,7 +525,7 @@
   }
 
   function render() {
-    const level = LEVELS[state.levelIndex];
+    const level = getCurrentLevel();
     applyTheme(level.theme);
 
     el.levelTitle.textContent = level.title;
@@ -527,6 +569,7 @@
     clearHint();
     if (!canMoveItem(state, srcShelfId, itemIndex, dstShelfId)) {
       const src = findShelf(state, srcShelfId);
+      const dst = findShelf(state, dstShelfId);
       const itemId = src && src.layers[0][itemIndex];
       const item = ITEMS[itemId];
       animFlags = {
@@ -538,7 +581,9 @@
       };
       sfx.error();
       vibrate([18, 30, 18]);
-      if (item) {
+      if (dst && isShelfLocked(state, dst)) {
+        showToast(`🔒 再打包 ${dst.unlockAtPacks - state.packsCleared} 箱才能解锁该货架哦~`);
+      } else if (item) {
         showToast(`空间不足，「${item.name}」占 ${item.width} 格哦~`);
       }
       render();
@@ -592,7 +637,10 @@
       }
     }
 
-    if (res.revealedShelfIds.length > 0) {
+    if (res.unlockedShelfIds && res.unlockedShelfIds.length > 0) {
+      sfx.reveal();
+      showToast('🔓 封条解除！新货架已解锁加入流转！', true);
+    } else if (res.revealedShelfIds.length > 0) {
       sfx.reveal();
     }
 
@@ -648,7 +696,14 @@
   }
 
   function handleShelfClick(shelfId) {
-    if (state.status !== 'playing' || !selected) return;
+    if (state.status !== 'playing') return;
+    const shelf = findShelf(state, shelfId);
+    if (shelf && isShelfLocked(state, shelf)) {
+      sfx.error();
+      showToast(`🔒 再打包 ${shelf.unlockAtPacks - state.packsCleared} 箱即可解锁该货架~`);
+      return;
+    }
+    if (!selected) return;
     if (selected.shelfId === shelfId) {
       selected = null;
       render();
@@ -844,7 +899,10 @@
       title.textContent = lvl.isElite ? `${lvl.title} 🔥` : lvl.title;
       const meta = document.createElement('div');
       meta.className = 'level-item-meta';
-      meta.textContent = `${theme.name} · ${lvl.shelves.length} 个货架`;
+      const tags = [`${theme.name}`, `${lvl.shelves.length}架`];
+      if (lvl.mysteryBack) tags.push('❓盲盒');
+      if (lvl.lockedShelves) tags.push('🔒锁架');
+      meta.textContent = tags.join(' · ');
       left.appendChild(title);
       left.appendChild(meta);
 
@@ -868,20 +926,22 @@
   }
 
   function openWinModal() {
-    const level = LEVELS[state.levelIndex];
-    const stars = calculateStars(state.moves, state.totalPacks);
+    const level = getCurrentLevel();
+    const stars = calculateStars(state.moves, state.totalPacks, level.parMoves);
     save.bestStars[level.id] = Math.max(Number(save.bestStars[level.id]) || 0, stars);
     persistSave();
 
-    const isLast = state.levelIndex >= LEVELS.length - 1;
+    const isLast = !state.isDaily && state.levelIndex >= LEVELS.length - 1;
     el.winStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
-    el.winSummary.textContent = isLast
-      ? '全部 6 个单机关卡已打通！你可以冲刺全三星或重温任意主题。'
-      : `已完成「${level.title}」，获得 ${stars} 星评价！`;
+    el.winSummary.textContent = state.isDaily
+      ? `已完成今日盲盒挑战，获得 ${stars} 星评价！`
+      : isLast
+        ? `全部 ${LEVELS.length} 个主线关卡已打通！你可以挑战每日盲盒或冲刺全三星。`
+        : `已完成「${level.title}」，获得 ${stars} 星评价！`;
     el.winMoves.textContent = String(state.moves);
     el.winPacks.textContent = String(state.packsCleared);
     el.winCoins.textContent = `+${state.coins}`;
-    el.nextLevelBtn.textContent = isLast ? '回到第 1 关' : '下一关 ➜';
+    el.nextLevelBtn.textContent = state.isDaily ? '返回主线 ➜' : isLast ? '回到第 1 关' : '下一关 ➜';
     el.winModal.classList.remove('hidden');
   }
 
@@ -892,6 +952,10 @@
   el.startLevelBtn.addEventListener('click', () => {
     sfx.select();
     openLevelModal();
+  });
+  el.startDailyBtn.addEventListener('click', () => {
+    sfx.select();
+    startDailyChallenge();
   });
   el.homeBtn.addEventListener('click', showStartScreen);
 
@@ -908,12 +972,16 @@
   });
 
   el.restartBtn.addEventListener('click', () => {
-    startLevel(state.levelIndex);
+    startLevel(state.levelIndex, state.customLevel);
     showToast('已重置本关货架');
   });
 
-  el.winReplayBtn.addEventListener('click', () => startLevel(state.levelIndex));
+  el.winReplayBtn.addEventListener('click', () => startLevel(state.levelIndex, state.customLevel));
   el.nextLevelBtn.addEventListener('click', () => {
+    if (state.isDaily) {
+      startLevel(save.currentLevelIndex);
+      return;
+    }
     const nextIdx = state.levelIndex + 1 < LEVELS.length ? state.levelIndex + 1 : 0;
     startLevel(nextIdx);
   });

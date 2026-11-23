@@ -158,6 +158,12 @@ body {
   box-shadow: 0 10px 22px rgba(28, 126, 214, 0.3);
 }
 
+.start-sub-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
 .start-sub-btn {
   width: 100%;
   background: rgba(255, 255, 255, 0.86);
@@ -473,6 +479,38 @@ body {
   animation: slideForward 260ms ease;
 }
 
+.shelf-card--locked {
+  border-color: rgba(110, 106, 119, 0.45);
+  background: rgba(226, 232, 240, 0.65);
+}
+
+.shelf-card--locked .front-row,
+.shelf-card--locked .back-peek-row {
+  filter: grayscale(0.65) brightness(0.88);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.lock-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.lock-pill {
+  background: rgba(38, 38, 48, 0.88);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
 .depth-badge {
   position: absolute;
   top: -7px;
@@ -533,6 +571,12 @@ body {
 
 .item-tile--wide {
   grid-column: span 2;
+}
+
+.item-tile--mystery {
+  background: linear-gradient(135deg, #4c465f 0%, #2f2b3d 100%);
+  border-color: #706889;
+  color: #f3f0ff;
 }
 
 .item-tile--selected {

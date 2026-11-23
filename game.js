@@ -40,6 +40,7 @@
         id: s.id,
         capacity: s.capacity,
         isTemp: false,
+        unlockAtPacks: s.unlockAtPacks || 0,
         layers: cloneLayers(s.layers),
       })),
       tempTray: {
@@ -70,19 +71,25 @@
     return Math.round(totalWidth / SHELF_CAPACITY);
   }
 
-  function createGameState(levelIndex = 0, savedBoosters) {
+  function createGameState(levelIndex = 0, savedBoosters, customLevel = null) {
     const idx = Math.max(0, Math.min(levelIndex, LEVELS.length - 1));
-    const level = LEVELS[idx];
+    const level = customLevel || LEVELS[idx];
+    const lockedMap = (level && level.lockedShelves) || {};
     const shelves = level.shelves.map((rawLayers, i) => ({
       id: `shelf-${i}`,
       capacity: SHELF_CAPACITY,
       isTemp: false,
+      unlockAtPacks: Number(lockedMap[i]) || 0,
       layers: rawLayers.length ? cloneLayers(rawLayers) : [[]],
     }));
 
     return {
       levelIndex: idx,
       levelId: level.id,
+      isDaily: Boolean(level.isDaily),
+      mysteryBack: Boolean(level.mysteryBack),
+      parMoves: level.parMoves || null,
+      customLevel: customLevel || null,
       shelves,
       tempTray: {
         id: 'temp',
@@ -105,6 +112,10 @@
     };
   }
 
+  function isShelfLocked(state, shelf) {
+    return Boolean(state && shelf && !shelf.isTemp && (shelf.unlockAtPacks || 0) > state.packsCleared);
+  }
+
   function getAllShelves(state) {
     return state.tempTray.capacity > 0
       ? [...state.shelves, state.tempTray]
@@ -123,6 +134,7 @@
     const src = findShelf(state, srcShelfId);
     const dst = findShelf(state, dstShelfId);
     if (!src || !dst) return false;
+    if (isShelfLocked(state, src) || isShelfLocked(state, dst)) return false;
     if (dst.isTemp && dst.capacity <= 0) return false;
 
     const srcFront = src.layers[0];
@@ -198,10 +210,17 @@
     state.moves += 1;
 
     let packed = null;
+    const unlockedShelfIds = [];
     if (isRowPacked(dst.layers[0], dst.capacity)) {
+      const prevPacks = state.packsCleared;
       const packedItemId = dst.layers[0][0];
       dst.layers[0] = [];
       state.packsCleared += 1;
+      for (const s of state.shelves) {
+        if ((s.unlockAtPacks || 0) > prevPacks && (s.unlockAtPacks || 0) <= state.packsCleared) {
+          unlockedShelfIds.push(s.id);
+        }
+      }
       state.combo += 1;
       state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
       state.comboGrace = COMBO_GRACE_MOVES;
@@ -225,7 +244,7 @@
 
     const deadlocked = !won && isDeadlocked(state);
 
-    return { ok: true, itemId, movedCount, packed, revealedShelfIds, won, deadlocked };
+    return { ok: true, itemId, movedCount, packed, revealedShelfIds, unlockedShelfIds, won, deadlocked };
   }
 
   function undoMove(state) {
@@ -270,15 +289,16 @@
     if (!state || state.status !== 'playing') {
       return { ok: false, reason: 'not_playing' };
     }
+    const unlockedShelves = state.shelves.filter((s) => !isShelfLocked(state, s));
     const pool = [];
-    for (const shelf of state.shelves) {
+    for (const shelf of unlockedShelves) {
       for (const id of shelf.layers[0]) pool.push(id);
     }
     if (pool.length <= 1) {
       return { ok: false, reason: 'nothing_to_shuffle' };
     }
 
-    const beforeKey = state.shelves.map((s) => s.layers[0].join(',')).join('|');
+    const beforeKey = unlockedShelves.map((s) => s.layers[0].join(',')).join('|');
     const wide = pool.filter((id) => ITEMS[id].width > 1);
     const narrow = pool.filter((id) => ITEMS[id].width === 1);
 
@@ -288,9 +308,9 @@
       fisherYates(narrow, rng);
       // Place wide items before narrow ones so 1-slot fragments never strand a 2-slot item.
       const ordered = [...wide, ...narrow];
-      const buckets = state.shelves.map(() => []);
-      const used = state.shelves.map(() => 0);
-      const indices = state.shelves.map((_, i) => i);
+      const buckets = unlockedShelves.map(() => []);
+      const used = unlockedShelves.map(() => 0);
+      const indices = unlockedShelves.map((_, i) => i);
 
       for (const itemId of ordered) {
         const w = ITEMS[itemId].width;
@@ -311,7 +331,7 @@
       if (afterKey !== beforeKey && !hasPacked) break;
     }
 
-    state.shelves.forEach((shelf, i) => {
+    unlockedShelves.forEach((shelf, i) => {
       shelf.layers[0] = bestLayout[i];
     });
     return { ok: true };
@@ -431,15 +451,23 @@
 
   function canAutoComplete(state) {
     if (!state || state.status !== 'playing' || state.packsCleared < 1) return false;
-    if (state.shelves.some((s) => s.layers.length > 1)) return false;
+    if (state.shelves.some((s) => s.layers.length > 1 || isShelfLocked(state, s))) return false;
     const hint = findBestHint(state);
     return Boolean(hint && hint.score >= 100);
   }
 
-  function calculateStars(moves, totalPacks) {
-    const packs = Math.max(1, totalPacks || 1);
-    if (moves <= packs * 4) return 3;
-    if (moves <= packs * 6) return 2;
+  function getThreeStarMoves(totalPacks, parMoves) {
+    if (Number.isInteger(parMoves) && parMoves > 0) return parMoves;
+    return Math.max(1, totalPacks || 1) * 4;
+  }
+
+  function calculateStars(moves, totalPacks, parMoves) {
+    const target3 = getThreeStarMoves(totalPacks, parMoves);
+    const target2 = Number.isInteger(parMoves) && parMoves > 0
+      ? Math.ceil(target3 * 1.45)
+      : Math.max(1, totalPacks || 1) * 6;
+    if (moves <= target3) return 3;
+    if (moves <= target2) return 2;
     return 1;
   }
 
@@ -451,6 +479,7 @@
     getRowWidth,
     getRemainingWidth,
     isRowPacked,
+    isShelfLocked,
     getAllShelves,
     findShelf,
     canMoveItem,
@@ -462,6 +491,7 @@
     findBestHint,
     canAutoComplete,
     validateLevel,
+    getThreeStarMoves,
     calculateStars,
   };
 
