@@ -6,7 +6,7 @@
       ? require('./levels.js')
       : root.ShelfLevels;
 
-  const DEFAULT_BOOSTERS = { undo: 5, expand: 2, shuffle: 2, hint: 3 };
+  const DEFAULT_BOOSTERS = { undo: 0, expand: 0, shuffle: 0, hint: 0 };
 
   function getRowWidth(row) {
     let total = 0;
@@ -404,6 +404,7 @@
   }
 
   const api = {
+    DEFAULT_BOOSTERS,
     createGameState,
     getRowWidth,
     getRemainingWidth,

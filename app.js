@@ -3,6 +3,7 @@
 
   const { THEMES, ITEMS, LEVELS } = window.ShelfLevels;
   const {
+    DEFAULT_BOOSTERS,
     createGameState,
     getRowWidth,
     getRemainingWidth,
@@ -69,8 +70,19 @@
     adModal: document.getElementById('adModal'),
     adRewardDesc: document.getElementById('adRewardDesc'),
     adTimerText: document.getElementById('adTimerText'),
+    adProgressBar: document.getElementById('adProgressBar'),
     cancelAdBtn: document.getElementById('cancelAdBtn'),
   };
+
+  function sanitizeBoosters(raw) {
+    const out = { ...DEFAULT_BOOSTERS };
+    if (!raw || typeof raw !== 'object') return out;
+    for (const key of Object.keys(DEFAULT_BOOSTERS)) {
+      const val = Number(raw[key]);
+      if (Number.isInteger(val) && val >= 0) out[key] = val;
+    }
+    return out;
+  }
 
   function loadSave() {
     try {
@@ -86,9 +98,17 @@
         coins: Number.isFinite(parsed.coins) ? parsed.coins : 0,
         muted: Boolean(parsed.muted),
         bestStars: parsed.bestStars && typeof parsed.bestStars === 'object' ? parsed.bestStars : {},
+        boosters: sanitizeBoosters(parsed.boosters),
       };
     } catch {
-      return { currentLevelIndex: 0, unlockedLevelIndex: 0, coins: 0, muted: false, bestStars: {} };
+      return {
+        currentLevelIndex: 0,
+        unlockedLevelIndex: 0,
+        coins: 0,
+        muted: false,
+        bestStars: {},
+        boosters: { ...DEFAULT_BOOSTERS },
+      };
     }
   }
 
@@ -137,6 +157,10 @@
       playTone(659 * mul, 659 * mul, 0.11, 'triangle', 0.09, 0.06);
       playTone(784 * mul, 880 * mul, 0.16, 'sine', 0.09, 0.12);
     },
+    reward: () => {
+      playTone(587, 659, 0.1, 'triangle', 0.08, 0);
+      playTone(880, 1046, 0.16, 'sine', 0.09, 0.09);
+    },
     win: () => {
       [523, 659, 784, 1046].forEach((f, idx) =>
         playTone(f, f * 1.01, 0.18, 'triangle', 0.09, idx * 0.08)
@@ -145,7 +169,7 @@
   };
 
   let save = loadSave();
-  let state = createGameState(save.currentLevelIndex);
+  let state = createGameState(save.currentLevelIndex, save.boosters);
   let selected = null;
   let activeHint = null;
   let toastTimer = null;
@@ -206,10 +230,15 @@
     el.startScreen.classList.remove('hidden');
   }
 
+  function syncBoostersToSave() {
+    save.boosters = { ...state.boosters };
+    persistSave();
+  }
+
   function startLevel(index) {
     save.currentLevelIndex = Math.max(0, Math.min(index, LEVELS.length - 1));
     persistSave();
-    state = createGameState(save.currentLevelIndex, state ? state.boosters : undefined);
+    state = createGameState(save.currentLevelIndex, save.boosters);
     selected = null;
     clearHint();
     animFlags = { shakeShelfId: null, packedShelfId: null, revealedIds: new Set() };
@@ -586,13 +615,17 @@
 
   function openSimulatedAd(type) {
     clearInterval(adTimer);
-    let left = 2;
-    el.adRewardDesc.textContent = `观看完成后获得 ${BOOSTER_LABELS[type]} ×${BOOSTER_REFILL[type]}`;
+    const totalSeconds = 3;
+    let left = totalSeconds;
+    el.adRewardDesc.textContent = `观看完成后获得「${BOOSTER_LABELS[type]}」×${BOOSTER_REFILL[type]}`;
     el.adTimerText.textContent = `${left}s`;
+    el.adProgressBar.style.width = '10%';
     el.adModal.classList.remove('hidden');
 
     adTimer = setInterval(() => {
       left -= 1;
+      const pct = Math.min(100, Math.round(((totalSeconds - left) / totalSeconds) * 100));
+      el.adProgressBar.style.width = `${pct}%`;
       if (left > 0) {
         el.adTimerText.textContent = `${left}s`;
         return;
@@ -600,19 +633,21 @@
       clearInterval(adTimer);
       el.adModal.classList.add('hidden');
       state.boosters[type] += BOOSTER_REFILL[type];
-      if (executeBooster(type)) {
+      sfx.reward();
+
+      const canAutoUse = !(type === 'undo' && state.history.length === 0);
+      if (canAutoUse && executeBooster(type)) {
         state.boosters[type] -= 1;
+      } else {
+        showToast(`🎬 补给到账！获得「${BOOSTER_LABELS[type]}」×${BOOSTER_REFILL[type]}`);
       }
+      syncBoostersToSave();
       render();
     }, 1000);
   }
 
   function handleBoosterClick(type) {
     if (state.status !== 'playing') return;
-    if (type === 'undo' && state.history.length === 0) {
-      showToast('还没有可以撤回的步骤哦~');
-      return;
-    }
     if (type === 'expand' && state.tempTray.capacity >= state.tempTray.maxCapacity) {
       showToast('临时理货台已达到上限 4 格~');
       return;
@@ -623,8 +658,14 @@
       return;
     }
 
+    if (type === 'undo' && state.history.length === 0) {
+      showToast('还没有可以撤回的步骤哦~');
+      return;
+    }
+
     if (executeBooster(type)) {
       state.boosters[type] -= 1;
+      syncBoostersToSave();
       render();
     }
   }

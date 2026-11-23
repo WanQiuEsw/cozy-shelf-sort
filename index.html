@@ -88,22 +88,22 @@
       <button type="button" class="booster-btn" data-booster="undo" id="btnUndo">
         <span class="booster-icon">↩️</span>
         <span class="booster-name">撤回</span>
-        <span class="booster-badge" id="badgeUndo">5</span>
+        <span class="booster-badge booster-badge--ad" id="badgeUndo">📺 领</span>
       </button>
       <button type="button" class="booster-btn" data-booster="expand" id="btnExpand">
         <span class="booster-icon">➕</span>
         <span class="booster-name">+1临时格</span>
-        <span class="booster-badge" id="badgeExpand">2</span>
+        <span class="booster-badge booster-badge--ad" id="badgeExpand">📺 领</span>
       </button>
       <button type="button" class="booster-btn" data-booster="shuffle" id="btnShuffle">
         <span class="booster-icon">🔀</span>
         <span class="booster-name">重排</span>
-        <span class="booster-badge" id="badgeShuffle">2</span>
+        <span class="booster-badge booster-badge--ad" id="badgeShuffle">📺 领</span>
       </button>
       <button type="button" class="booster-btn" data-booster="hint" id="btnHint">
         <span class="booster-icon">💡</span>
         <span class="booster-name">提示</span>
-        <span class="booster-badge" id="badgeHint">3</span>
+        <span class="booster-badge booster-badge--ad" id="badgeHint">📺 领</span>
       </button>
     </footer>
   </div>
@@ -139,13 +139,16 @@
     </div>
   </div>
 
-  <!-- 模拟微信激励视频弹窗 -->
+  <!-- 模拟激励视频弹窗 -->
   <div class="modal-backdrop hidden" id="adModal" role="dialog" aria-modal="true" aria-labelledby="adModalTitle">
     <div class="modal-card modal-center">
-      <div class="ad-tag">模拟微信激励视频</div>
-      <h2 id="adModalTitle">正在发放道具补给...</h2>
-      <p class="modal-desc" id="adRewardDesc">观看完成后自动补充道具次数</p>
-      <div class="ad-timer-ring" id="adTimerText">2s</div>
+      <div class="ad-tag">🎬 模拟激励视频广告</div>
+      <h2 id="adModalTitle">观看广告免费领取道具</h2>
+      <p class="modal-desc" id="adRewardDesc">观看完成后自动发放道具补给</p>
+      <div class="ad-timer-ring" id="adTimerText">3s</div>
+      <div class="ad-progress-track">
+        <div class="ad-progress-fill" id="adProgressBar"></div>
+      </div>
       <button type="button" class="btn-secondary" id="cancelAdBtn">放弃领取</button>
     </div>
   </div>

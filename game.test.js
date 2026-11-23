@@ -232,6 +232,11 @@ test('completing Level 1 transitions cleanly to won status', () => {
   assert.equal(isDeadlocked(s), false);
 });
 
+test('all boosters start at 0 so every booster requires simulated ad acquisition', () => {
+  const state = createGameState(0);
+  assert.deepEqual(state.boosters, { undo: 0, expand: 0, shuffle: 0, hint: 0 });
+});
+
 test('calculateStars awards 3, 2, or 1 star based on move efficiency', () => {
   assert.equal(calculateStars(10, 3), 3);
   assert.equal(calculateStars(12, 3), 3);
