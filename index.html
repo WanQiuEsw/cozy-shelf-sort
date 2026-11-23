@@ -8,6 +8,40 @@
 </head>
 <body>
   <div class="app-shell" id="appShell">
+    <!-- 开始界面 -->
+    <section class="start-screen" id="startScreen" aria-label="游戏开始界面">
+      <div class="start-badge">✨ 单机治愈理货</div>
+      <div class="start-showcase" aria-hidden="true">
+        <span class="showcase-tile" style="--d:0s">🥤</span>
+        <span class="showcase-tile" style="--d:0.15s">🍊</span>
+        <span class="showcase-tile" style="--d:0.3s">🐾</span>
+        <span class="showcase-tile" style="--d:0.45s">💄</span>
+      </div>
+      <h1 class="start-title">便利店理货冲冲冲</h1>
+      <p class="start-subtitle">把杂乱货架排得整整齐齐，凑满同款一键打包！</p>
+
+      <div class="start-stats">
+        <div class="start-stat">
+          <span>关卡进度</span>
+          <strong id="startLevelStat">1 / 6</strong>
+        </div>
+        <div class="start-stat">
+          <span>收集星数</span>
+          <strong id="startStarStat">⭐ 0 / 18</strong>
+        </div>
+        <div class="start-stat">
+          <span>累计金币</span>
+          <strong id="startCoinStat">💰 0</strong>
+        </div>
+      </div>
+
+      <div class="start-actions">
+        <button type="button" class="btn-primary start-play-btn" id="startGameBtn">开始理货 ▶</button>
+        <button type="button" class="btn-secondary start-sub-btn" id="startLevelBtn">选择关卡</button>
+      </div>
+      <p class="start-footnote">纯单机本地存档 · 道具可通过激励广告免费补给</p>
+    </section>
+
     <header class="hud-top">
       <button type="button" class="pill-btn level-btn" id="levelSwitchBtn" title="切换关卡与主题">
         <span id="levelTitle">第 1 关</span>
@@ -16,6 +50,7 @@
       </button>
       <div class="hud-actions">
         <div class="pill-badge" title="累计金币">💰 <span id="coinCount">0</span></div>
+        <button type="button" class="icon-btn" id="homeBtn" aria-label="返回开始界面" title="返回开始界面">🏠</button>
         <button type="button" class="icon-btn" id="soundToggleBtn" aria-label="切换音效" title="切换音效">🔊</button>
         <button type="button" class="icon-btn" id="restartBtn" aria-label="重新开始" title="重新开始">🔄</button>
       </div>
@@ -89,6 +124,7 @@
   <div class="modal-backdrop hidden" id="winModal" role="dialog" aria-modal="true" aria-labelledby="winModalTitle">
     <div class="modal-card modal-center">
       <div class="win-emoji">🎉</div>
+      <div class="win-stars" id="winStars" aria-label="本关星级评价"></div>
       <h2 id="winModalTitle">理货大成功！</h2>
       <p class="modal-desc" id="winSummary"></p>
       <div class="win-stats">

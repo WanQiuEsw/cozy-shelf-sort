@@ -15,6 +15,7 @@
     expandTempTray,
     shuffleFrontRows,
     findBestHint,
+    calculateStars,
   } = window.ShelfGame;
 
   const STORAGE_KEY = 'cozy_shelf_sort_v1';
@@ -23,6 +24,13 @@
 
   const el = {
     appShell: document.getElementById('appShell'),
+    startScreen: document.getElementById('startScreen'),
+    startLevelStat: document.getElementById('startLevelStat'),
+    startStarStat: document.getElementById('startStarStat'),
+    startCoinStat: document.getElementById('startCoinStat'),
+    startGameBtn: document.getElementById('startGameBtn'),
+    startLevelBtn: document.getElementById('startLevelBtn'),
+    homeBtn: document.getElementById('homeBtn'),
     levelSwitchBtn: document.getElementById('levelSwitchBtn'),
     levelTitle: document.getElementById('levelTitle'),
     eliteTag: document.getElementById('eliteTag'),
@@ -51,6 +59,7 @@
     closeLevelModalBtn: document.getElementById('closeLevelModalBtn'),
     levelList: document.getElementById('levelList'),
     winModal: document.getElementById('winModal'),
+    winStars: document.getElementById('winStars'),
     winSummary: document.getElementById('winSummary'),
     winMoves: document.getElementById('winMoves'),
     winPacks: document.getElementById('winPacks'),
@@ -76,9 +85,10 @@
           : 0,
         coins: Number.isFinite(parsed.coins) ? parsed.coins : 0,
         muted: Boolean(parsed.muted),
+        bestStars: parsed.bestStars && typeof parsed.bestStars === 'object' ? parsed.bestStars : {},
       };
     } catch {
-      return { currentLevelIndex: 0, unlockedLevelIndex: 0, coins: 0, muted: false };
+      return { currentLevelIndex: 0, unlockedLevelIndex: 0, coins: 0, muted: false, bestStars: {} };
     }
   }
 
@@ -171,6 +181,31 @@
     el.themeLabel.textContent = `${theme.name} · ${theme.subtitle}`;
   }
 
+  function getTotalStars() {
+    return LEVELS.reduce((sum, lvl) => sum + (Number(save.bestStars[lvl.id]) || 0), 0);
+  }
+
+  function formatStars(count) {
+    return '★'.repeat(count) + '☆'.repeat(Math.max(0, 3 - count));
+  }
+
+  function renderStartScreen() {
+    const totalStars = getTotalStars();
+    const maxStars = LEVELS.length * 3;
+    el.startLevelStat.textContent = `第 ${save.currentLevelIndex + 1} / ${LEVELS.length} 关`;
+    el.startStarStat.textContent = `⭐ ${totalStars} / ${maxStars}`;
+    el.startCoinStat.textContent = `💰 ${save.coins}`;
+    el.startGameBtn.textContent =
+      save.currentLevelIndex > 0 || totalStars > 0
+        ? `继续第 ${save.currentLevelIndex + 1} 关 ▶`
+        : '开始理货 ▶';
+  }
+
+  function showStartScreen() {
+    renderStartScreen();
+    el.startScreen.classList.remove('hidden');
+  }
+
   function startLevel(index) {
     save.currentLevelIndex = Math.max(0, Math.min(index, LEVELS.length - 1));
     persistSave();
@@ -178,6 +213,7 @@
     selected = null;
     clearHint();
     animFlags = { shakeShelfId: null, packedShelfId: null, revealedIds: new Set() };
+    el.startScreen.classList.add('hidden');
     el.winModal.classList.add('hidden');
     el.levelModal.classList.add('hidden');
     render();
@@ -611,8 +647,16 @@
       left.appendChild(title);
       left.appendChild(meta);
 
-      const right = document.createElement('span');
-      right.textContent = idx === state.levelIndex ? '当前' : idx <= save.unlockedLevelIndex ? '已解锁' : '试玩';
+      const right = document.createElement('div');
+      right.className = 'level-item-right';
+      const starSpan = document.createElement('span');
+      starSpan.className = 'level-stars';
+      starSpan.textContent = formatStars(Number(save.bestStars[lvl.id]) || 0);
+      const statusSpan = document.createElement('span');
+      statusSpan.textContent =
+        idx === state.levelIndex ? '当前' : idx <= save.unlockedLevelIndex ? '已解锁' : '可试玩';
+      right.appendChild(starSpan);
+      right.appendChild(statusSpan);
       item.appendChild(left);
       item.appendChild(right);
 
@@ -623,16 +667,32 @@
   }
 
   function openWinModal() {
+    const level = LEVELS[state.levelIndex];
+    const stars = calculateStars(state.moves, state.totalPacks);
+    save.bestStars[level.id] = Math.max(Number(save.bestStars[level.id]) || 0, stars);
+    persistSave();
+
     const isLast = state.levelIndex >= LEVELS.length - 1;
+    el.winStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
     el.winSummary.textContent = isLast
-      ? '全部 6 个演示关卡已打通！你可以随时重玩或点击左上角切换任意关卡。'
-      : `已完成「${LEVELS[state.levelIndex].title}」，继续下一关挑战吧！`;
+      ? '全部 6 个单机关卡已打通！你可以冲刺全三星或重温任意主题。'
+      : `已完成「${level.title}」，获得 ${stars} 星评价！`;
     el.winMoves.textContent = String(state.moves);
     el.winPacks.textContent = String(state.packsCleared);
     el.winCoins.textContent = `+${state.coins}`;
     el.nextLevelBtn.textContent = isLast ? '回到第 1 关' : '下一关 ➜';
     el.winModal.classList.remove('hidden');
   }
+
+  el.startGameBtn.addEventListener('click', () => {
+    sfx.select();
+    startLevel(save.currentLevelIndex);
+  });
+  el.startLevelBtn.addEventListener('click', () => {
+    sfx.select();
+    openLevelModal();
+  });
+  el.homeBtn.addEventListener('click', showStartScreen);
 
   el.levelSwitchBtn.addEventListener('click', openLevelModal);
   el.closeLevelModalBtn.addEventListener('click', () => el.levelModal.classList.add('hidden'));
@@ -666,5 +726,6 @@
     btn.addEventListener('click', () => handleBoosterClick(btn.dataset.booster));
   });
 
+  renderStartScreen();
   render();
 })();

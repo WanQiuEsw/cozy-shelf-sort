@@ -15,6 +15,7 @@ const {
   shuffleFrontRows,
   findBestHint,
   validateLevel,
+  calculateStars,
 } = require('./game.js');
 
 test('all 6 levels pass structural validation and start playable', () => {
@@ -229,4 +230,12 @@ test('completing Level 1 transitions cleanly to won status', () => {
   assert.equal(s.status, 'won');
   assert.equal(s.packsCleared, 3);
   assert.equal(isDeadlocked(s), false);
+});
+
+test('calculateStars awards 3, 2, or 1 star based on move efficiency', () => {
+  assert.equal(calculateStars(10, 3), 3);
+  assert.equal(calculateStars(12, 3), 3);
+  assert.equal(calculateStars(15, 3), 2);
+  assert.equal(calculateStars(18, 3), 2);
+  assert.equal(calculateStars(19, 3), 1);
 });

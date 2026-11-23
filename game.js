@@ -396,6 +396,13 @@
     return { valid: errors.length === 0, errors };
   }
 
+  function calculateStars(moves, totalPacks) {
+    const packs = Math.max(1, totalPacks || 1);
+    if (moves <= packs * 4) return 3;
+    if (moves <= packs * 6) return 2;
+    return 1;
+  }
+
   const api = {
     createGameState,
     getRowWidth,
@@ -410,6 +417,7 @@
     shuffleFrontRows,
     findBestHint,
     validateLevel,
+    calculateStars,
   };
 
   if (typeof module !== 'undefined' && module.exports) {
