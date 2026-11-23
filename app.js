@@ -7,6 +7,7 @@
     createGameState,
     getRowWidth,
     getRemainingWidth,
+    isRowPacked,
     getAllShelves,
     findShelf,
     canMoveItem,
@@ -39,6 +40,7 @@
     soundToggleBtn: document.getElementById('soundToggleBtn'),
     restartBtn: document.getElementById('restartBtn'),
     themeLabel: document.getElementById('themeLabel'),
+    comboPill: document.getElementById('comboPill'),
     packProgressText: document.getElementById('packProgressText'),
     packProgressBar: document.getElementById('packProgressBar'),
     levelTip: document.getElementById('levelTip'),
@@ -168,6 +170,16 @@
     },
   };
 
+  function vibrate(pattern) {
+    if (!save.muted && navigator.vibrate) {
+      try {
+        navigator.vibrate(pattern);
+      } catch {
+        // Ignore unsupported vibration calls.
+      }
+    }
+  }
+
   let save = loadSave();
   let state = createGameState(save.currentLevelIndex, save.boosters);
   let selected = null;
@@ -175,7 +187,13 @@
   let toastTimer = null;
   let hintTimer = null;
   let adTimer = null;
-  let animFlags = { shakeShelfId: null, packedShelfId: null, revealedIds: new Set() };
+  let animFlags = {
+    shakeShelfId: null,
+    packedShelfId: null,
+    packBurst: null,
+    landed: null,
+    revealedIds: new Set(),
+  };
 
   function showToast(text, isCombo = false) {
     clearTimeout(toastTimer);
@@ -241,7 +259,13 @@
     state = createGameState(save.currentLevelIndex, save.boosters);
     selected = null;
     clearHint();
-    animFlags = { shakeShelfId: null, packedShelfId: null, revealedIds: new Set() };
+    animFlags = {
+      shakeShelfId: null,
+      packedShelfId: null,
+      packBurst: null,
+      landed: null,
+      revealedIds: new Set(),
+    };
     el.startScreen.classList.add('hidden');
     el.winModal.classList.add('hidden');
     el.levelModal.classList.add('hidden');
@@ -254,6 +278,8 @@
     node.className = 'item-tile';
     if (item.width === 2) node.classList.add('item-tile--wide');
     if (options.isSelected) node.classList.add('item-tile--selected');
+    if (options.isMatch) node.classList.add('item-tile--match');
+    if (options.isLanded) node.classList.add('item-tile--landed');
     if (options.isHintSrc) node.classList.add('item-tile--hint-src');
 
     node.style.setProperty('--item-bg', item.bg);
@@ -285,16 +311,67 @@
     return node;
   }
 
+  function getSelectedItemId() {
+    if (!selected) return null;
+    const src = findShelf(state, selected.shelfId);
+    return src ? src.layers[0][selected.itemIndex] || null : null;
+  }
+
+  function createPackBurstNode(packBurst) {
+    const burst = document.createElement('div');
+    burst.className = 'pack-burst';
+
+    const label = document.createElement('span');
+    label.className = 'pack-float';
+    label.textContent =
+      packBurst.combo > 1
+        ? `🔥 ×${packBurst.combo} +${packBurst.coinsEarned}💰`
+        : `+${packBurst.coinsEarned}💰`;
+    burst.appendChild(label);
+
+    const sparks = [
+      { tx: '-38px', ty: '-26px', color: '#fcc419' },
+      { tx: '38px', ty: '-26px', color: '#ff922b' },
+      { tx: '-46px', ty: '6px', color: '#ff6b6b' },
+      { tx: '46px', ty: '6px', color: '#51cf66' },
+      { tx: '-20px', ty: '28px', color: '#339af0' },
+      { tx: '22px', ty: '28px', color: '#fcc419' },
+    ];
+    for (const s of sparks) {
+      const dot = document.createElement('span');
+      dot.className = 'pack-spark';
+      dot.style.setProperty('--tx', s.tx);
+      dot.style.setProperty('--ty', s.ty);
+      dot.style.setProperty('--spark-color', s.color);
+      burst.appendChild(dot);
+    }
+    return burst;
+  }
+
   function renderShelfCard(shelf) {
     const card = document.createElement('div');
     card.className = 'shelf-card';
     card.dataset.shelfId = shelf.id;
 
+    const selectedItemId = getSelectedItemId();
     const canAcceptSelected =
       selected &&
       selected.shelfId !== shelf.id &&
       canMoveItem(state, selected.shelfId, selected.itemIndex, shelf.id);
-    if (canAcceptSelected) card.classList.add('shelf-card--valid');
+    const willPack =
+      canAcceptSelected &&
+      selectedItemId &&
+      isRowPacked([...shelf.layers[0], selectedItemId], shelf.capacity);
+
+    if (willPack) {
+      card.classList.add('shelf-card--pack-ready');
+      const readyTag = document.createElement('span');
+      readyTag.className = 'pack-ready-tag';
+      readyTag.textContent = '✨ 打包!';
+      card.appendChild(readyTag);
+    } else if (canAcceptSelected) {
+      card.classList.add('shelf-card--valid');
+    }
     if (activeHint && activeHint.dstShelfId === shelf.id) card.classList.add('shelf-card--hint-dst');
     if (animFlags.shakeShelfId === shelf.id) card.classList.add('shelf-card--shake');
     if (animFlags.packedShelfId === shelf.id) card.classList.add('shelf-card--packed');
@@ -325,10 +402,14 @@
 
     frontItems.forEach((id, idx) => {
       const isSelected = Boolean(selected && selected.shelfId === shelf.id && selected.itemIndex === idx);
+      const isMatch = Boolean(selectedItemId && !isSelected && id === selectedItemId);
+      const isLanded = Boolean(
+        animFlags.landed && animFlags.landed.shelfId === shelf.id && animFlags.landed.itemIndex === idx
+      );
       const isHintSrc = Boolean(
         activeHint && activeHint.srcShelfId === shelf.id && activeHint.itemIndex === idx
       );
-      const tile = createItemNode(id, { isSelected, isHintSrc });
+      const tile = createItemNode(id, { isSelected, isMatch, isLanded, isHintSrc });
       tile.addEventListener('click', (e) => {
         e.stopPropagation();
         handleItemClick(shelf.id, idx);
@@ -359,6 +440,9 @@
 
     stage.appendChild(front);
     card.appendChild(stage);
+    if (animFlags.packBurst && animFlags.packBurst.shelfId === shelf.id) {
+      card.appendChild(createPackBurstNode(animFlags.packBurst));
+    }
     card.addEventListener('click', () => handleShelfClick(shelf.id));
     return card;
   }
@@ -402,6 +486,11 @@
     el.soundToggleBtn.textContent = save.muted ? '🔇' : '🔊';
 
     el.packProgressText.textContent = `${state.packsCleared} / ${state.totalPacks}`;
+    const showCombo = state.status === 'playing' && state.combo > 0 && state.comboGrace > 0;
+    el.comboPill.classList.toggle('hidden', !showCombo);
+    if (showCombo) {
+      el.comboPill.textContent = `🔥 连击 ×${state.combo} · 剩${state.comboGrace}步`;
+    }
     const pct = state.totalPacks > 0 ? Math.round((state.packsCleared / state.totalPacks) * 100) : 0;
     el.packProgressBar.style.width = `${pct}%`;
     el.levelTip.textContent = level.tip;
@@ -431,8 +520,15 @@
       const src = findShelf(state, srcShelfId);
       const itemId = src && src.layers[0][itemIndex];
       const item = ITEMS[itemId];
-      animFlags = { shakeShelfId: dstShelfId, packedShelfId: null, revealedIds: new Set() };
+      animFlags = {
+        shakeShelfId: dstShelfId,
+        packedShelfId: null,
+        packBurst: null,
+        landed: null,
+        revealedIds: new Set(),
+      };
       sfx.error();
+      vibrate([18, 30, 18]);
       if (item) {
         showToast(`空间不足，「${item.name}」占 ${item.width} 格哦~`);
       }
@@ -445,9 +541,15 @@
 
     const res = moveItem(state, srcShelfId, itemIndex, dstShelfId);
     selected = null;
+    const dstAfter = findShelf(state, dstShelfId);
+    const landedIdx = !res.packed && dstAfter ? dstAfter.layers[0].length - 1 : -1;
     animFlags = {
       shakeShelfId: null,
       packedShelfId: res.packed ? res.packed.shelfId : null,
+      packBurst: res.packed
+        ? { shelfId: res.packed.shelfId, coinsEarned: res.packed.coinsEarned, combo: res.packed.combo }
+        : null,
+      landed: landedIdx >= 0 ? { shelfId: dstShelfId, itemIndex: landedIdx } : null,
       revealedIds: new Set(res.revealedShelfIds),
     };
 
@@ -455,13 +557,20 @@
       save.coins += res.packed.coinsEarned;
       persistSave();
       sfx.pack(res.packed.combo);
+      vibrate(res.packed.combo > 1 ? [20, 30, 30] : 22);
+      if (res.packed.combo >= 2) {
+        el.appShell.classList.remove('app-shell--bump');
+        void el.appShell.offsetWidth;
+        el.appShell.classList.add('app-shell--bump');
+      }
       const msg =
         res.packed.combo > 1
-          ? `连击 ×${res.packed.combo}！打包成功 +${res.packed.coinsEarned} 💰`
-          : `打包成功！+${res.packed.coinsEarned} 💰`;
+          ? `🔥 连击 ×${res.packed.combo}！打包成功 +${res.packed.coinsEarned} 💰`
+          : `✨ 打包成功！+${res.packed.coinsEarned} 💰`;
       showToast(msg, res.packed.combo > 1);
     } else {
       sfx.place();
+      vibrate(8);
     }
 
     if (res.revealedShelfIds.length > 0) {
@@ -470,8 +579,14 @@
 
     render();
     setTimeout(() => {
-      animFlags = { shakeShelfId: null, packedShelfId: null, revealedIds: new Set() };
-    }, 360);
+      animFlags = {
+        shakeShelfId: null,
+        packedShelfId: null,
+        packBurst: null,
+        landed: null,
+        revealedIds: new Set(),
+      };
+    }, 620);
 
     if (res.won) {
       save.unlockedLevelIndex = Math.max(

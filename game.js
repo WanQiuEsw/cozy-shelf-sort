@@ -7,6 +7,7 @@
       : root.ShelfLevels;
 
   const DEFAULT_BOOSTERS = { undo: 0, expand: 0, shuffle: 0, hint: 0 };
+  const COMBO_GRACE_MOVES = 3;
 
   function getRowWidth(row) {
     let total = 0;
@@ -51,6 +52,7 @@
       packsCleared: state.packsCleared,
       coins: state.coins,
       combo: state.combo,
+      comboGrace: state.comboGrace,
       status: state.status,
     };
   }
@@ -93,6 +95,7 @@
       packsCleared: 0,
       totalPacks: countTotalPacks(level.shelves),
       combo: 0,
+      comboGrace: 0,
       status: 'playing',
     };
   }
@@ -179,9 +182,13 @@
       dst.layers[0] = [];
       state.packsCleared += 1;
       state.combo += 1;
+      state.comboGrace = COMBO_GRACE_MOVES;
       const coinsEarned = 10 + Math.max(0, state.combo - 1) * 5;
       state.coins += coinsEarned;
       packed = { shelfId: dst.id, itemId: packedItemId, coinsEarned, combo: state.combo };
+    } else if (state.comboGrace > 0) {
+      state.comboGrace -= 1;
+      if (state.comboGrace === 0) state.combo = 0;
     } else {
       state.combo = 0;
     }
@@ -209,6 +216,7 @@
     state.packsCleared = prev.packsCleared;
     state.coins = prev.coins;
     state.combo = prev.combo;
+    state.comboGrace = prev.comboGrace || 0;
     state.status = prev.status;
     return { ok: true };
   }
@@ -405,9 +413,11 @@
 
   const api = {
     DEFAULT_BOOSTERS,
+    COMBO_GRACE_MOVES,
     createGameState,
     getRowWidth,
     getRemainingWidth,
+    isRowPacked,
     getAllShelves,
     findShelf,
     canMoveItem,

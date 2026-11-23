@@ -244,3 +244,34 @@ test('calculateStars awards 3, 2, or 1 star based on move efficiency', () => {
   assert.equal(calculateStars(18, 3), 2);
   assert.equal(calculateStars(19, 3), 1);
 });
+
+test('combo grace window keeps streak alive across up to 2 setup moves and resets on 3rd', () => {
+  const s = createGameState(0);
+  // Set up Level 1 so we pack juice, take 2 non-packing moves, then pack cola -> combo should be 2!
+  moveItem(s, 'shelf-0', 2, 'shelf-3'); // yogurt -> s3
+  moveItem(s, 'shelf-1', 2, 'shelf-2'); // juice -> s2 (3x juice)
+  moveItem(s, 'shelf-3', 0, 'shelf-1'); // yogurt -> s1 (3x yogurt)
+  moveItem(s, 'shelf-0', 0, 'shelf-3'); // cola -> s3
+  moveItem(s, 'shelf-0', 0, 'shelf-3'); // cola -> s3, reveals s0 ['juice', 'cola']
+
+  const pack1 = moveItem(s, 'shelf-0', 0, 'shelf-2'); // pack juice -> combo 1, grace 3
+  assert.equal(pack1.packed.combo, 1);
+  assert.equal(s.comboGrace, 3);
+
+  moveItem(s, 'shelf-0', 0, 'shelf-3'); // non-pack move 1 -> grace 2, combo still 1
+  assert.equal(s.combo, 1);
+  assert.equal(s.comboGrace, 2);
+
+  moveItem(s, 'shelf-1', 0, 'shelf-2'); // non-pack move 2 -> grace 1, combo still 1
+  assert.equal(s.combo, 1);
+  assert.equal(s.comboGrace, 1);
+
+  moveItem(s, 'shelf-1', 0, 'shelf-2'); // non-pack move 3 -> grace 0, combo resets to 0
+  assert.equal(s.combo, 0);
+  assert.equal(s.comboGrace, 0);
+
+  // Undo restores combo & comboGrace cleanly
+  undoMove(s);
+  assert.equal(s.combo, 1);
+  assert.equal(s.comboGrace, 1);
+});
