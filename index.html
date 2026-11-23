@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>便利店理货冲冲冲 · 治愈收纳 Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <header class="hud-top">
+      <button type="button" class="pill-btn level-btn" id="levelSwitchBtn" title="切换关卡与主题">
+        <span id="levelTitle">第 1 关</span>
+        <span class="elite-tag hidden" id="eliteTag">🔥 精英</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="hud-actions">
+        <div class="pill-badge" title="累计金币">💰 <span id="coinCount">0</span></div>
+        <button type="button" class="icon-btn" id="soundToggleBtn" aria-label="切换音效" title="切换音效">🔊</button>
+        <button type="button" class="icon-btn" id="restartBtn" aria-label="重新开始" title="重新开始">🔄</button>
+      </div>
+    </header>
+
+    <section class="hud-sub">
+      <div class="progress-row">
+        <span class="theme-label" id="themeLabel">便利店冰柜</span>
+        <span class="pack-label">已打包 <strong id="packProgressText">0 / 3</strong> 箱</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="packProgressBar"></div>
+      </div>
+      <p class="level-tip" id="levelTip"></p>
+    </section>
+
+    <main class="board-area">
+      <div class="toast-slot" id="toastSlot" aria-live="polite"></div>
+      <div class="shelves-grid" id="shelvesGrid"></div>
+
+      <section class="temp-tray-wrap hidden" id="tempTrayWrap" aria-label="临时理货台">
+        <div class="temp-tray-header">
+          <span>🧺 临时理货台</span>
+          <span class="temp-cap-badge" id="tempCapBadge">1 / 4 格</span>
+        </div>
+        <div id="tempTrayContainer"></div>
+      </section>
+    </main>
+
+    <div class="deadlock-banner hidden" id="deadlockBanner" role="status">
+      货架空间不足啦！试试下方的 <strong>+1临时格</strong> 或 <strong>重排</strong> 救场~
+    </div>
+
+    <footer class="booster-bar">
+      <button type="button" class="booster-btn" data-booster="undo" id="btnUndo">
+        <span class="booster-icon">↩️</span>
+        <span class="booster-name">撤回</span>
+        <span class="booster-badge" id="badgeUndo">5</span>
+      </button>
+      <button type="button" class="booster-btn" data-booster="expand" id="btnExpand">
+        <span class="booster-icon">➕</span>
+        <span class="booster-name">+1临时格</span>
+        <span class="booster-badge" id="badgeExpand">2</span>
+      </button>
+      <button type="button" class="booster-btn" data-booster="shuffle" id="btnShuffle">
+        <span class="booster-icon">🔀</span>
+        <span class="booster-name">重排</span>
+        <span class="booster-badge" id="badgeShuffle">2</span>
+      </button>
+      <button type="button" class="booster-btn" data-booster="hint" id="btnHint">
+        <span class="booster-icon">💡</span>
+        <span class="booster-name">提示</span>
+        <span class="booster-badge" id="badgeHint">3</span>
+      </button>
+    </footer>
+  </div>
+
+  <!-- 关卡切换弹窗 -->
+  <div class="modal-backdrop hidden" id="levelModal" role="dialog" aria-modal="true" aria-labelledby="levelModalTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="levelModalTitle">选择关卡与主题</h2>
+        <button type="button" class="icon-btn" id="closeLevelModalBtn" aria-label="关闭">✕</button>
+      </div>
+      <p class="modal-desc">可自由试玩全部 6 个梯度关卡，体验 3 套生活场景与异形大件收纳。</p>
+      <div class="level-list" id="levelList"></div>
+    </div>
+  </div>
+
+  <!-- 通关弹窗 -->
+  <div class="modal-backdrop hidden" id="winModal" role="dialog" aria-modal="true" aria-labelledby="winModalTitle">
+    <div class="modal-card modal-center">
+      <div class="win-emoji">🎉</div>
+      <h2 id="winModalTitle">理货大成功！</h2>
+      <p class="modal-desc" id="winSummary"></p>
+      <div class="win-stats">
+        <div class="stat-box"><span>步数</span><strong id="winMoves">0</strong></div>
+        <div class="stat-box"><span>打包箱数</span><strong id="winPacks">0</strong></div>
+        <div class="stat-box"><span>本关金币</span><strong id="winCoins">+0</strong></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="winReplayBtn">再玩一次</button>
+        <button type="button" class="btn-primary" id="nextLevelBtn">下一关 ➜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模拟微信激励视频弹窗 -->
+  <div class="modal-backdrop hidden" id="adModal" role="dialog" aria-modal="true" aria-labelledby="adModalTitle">
+    <div class="modal-card modal-center">
+      <div class="ad-tag">模拟微信激励视频</div>
+      <h2 id="adModalTitle">正在发放道具补给...</h2>
+      <p class="modal-desc" id="adRewardDesc">观看完成后自动补充道具次数</p>
+      <div class="ad-timer-ring" id="adTimerText">2s</div>
+      <button type="button" class="btn-secondary" id="cancelAdBtn">放弃领取</button>
+    </div>
+  </div>
+
+  <script src="levels.js"></script>
+  <script src="game.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
