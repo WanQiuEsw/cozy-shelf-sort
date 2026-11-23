@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { SHELF_CAPACITY, ITEMS, LEVELS } = require('./levels.js');
 const {
+  BOOSTER_COSTS,
   createGameState,
   getRowWidth,
   getRemainingWidth,
@@ -14,6 +15,7 @@ const {
   expandTempTray,
   shuffleFrontRows,
   findBestHint,
+  canAutoComplete,
   validateLevel,
   calculateStars,
 } = require('./game.js');
@@ -274,4 +276,17 @@ test('combo grace window keeps streak alive across up to 2 setup moves and reset
   undoMove(s);
   assert.equal(s.combo, 1);
   assert.equal(s.comboGrace, 1);
+});
+
+test('batch move transfers multiple matching items in one move and canAutoComplete detects revealed board', () => {
+  const s = createGameState(0);
+  assert.equal(canAutoComplete(s), false);
+  // Shelf-0 has ['cola', 'cola', 'yogurt']; batch move cola to empty shelf-3 moves both colas in 1 move
+  const batchRes = moveItem(s, 'shelf-0', 0, 'shelf-3', { batch: true });
+  assert.equal(batchRes.ok, true);
+  assert.equal(batchRes.movedCount, 2);
+  assert.equal(s.moves, 1);
+  assert.deepEqual(s.shelves[3].layers[0], ['cola', 'cola']);
+  assert.deepEqual(s.shelves[0].layers[0], ['yogurt']);
+  assert.ok(BOOSTER_COSTS.undo > 0 && BOOSTER_COSTS.expand > 0);
 });

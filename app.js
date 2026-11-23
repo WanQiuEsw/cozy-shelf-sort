@@ -4,6 +4,7 @@
   const { THEMES, ITEMS, LEVELS } = window.ShelfLevels;
   const {
     DEFAULT_BOOSTERS,
+    BOOSTER_COSTS,
     createGameState,
     getRowWidth,
     getRemainingWidth,
@@ -17,6 +18,7 @@
     expandTempTray,
     shuffleFrontRows,
     findBestHint,
+    canAutoComplete,
     calculateStars,
   } = window.ShelfGame;
 
@@ -49,6 +51,7 @@
     tempTrayWrap: document.getElementById('tempTrayWrap'),
     tempCapBadge: document.getElementById('tempCapBadge'),
     tempTrayContainer: document.getElementById('tempTrayContainer'),
+    autoCompleteBtn: document.getElementById('autoCompleteBtn'),
     deadlockBanner: document.getElementById('deadlockBanner'),
     btnUndo: document.getElementById('btnUndo'),
     badgeUndo: document.getElementById('badgeUndo'),
@@ -457,15 +460,18 @@
 
     for (const { key, btn, badge } of map) {
       const count = state.boosters[key];
+      const cost = BOOSTER_COSTS[key];
       const isExpandMax = key === 'expand' && state.tempTray.capacity >= state.tempTray.maxCapacity;
       btn.disabled = state.status !== 'playing' || isExpandMax;
+      badge.classList.remove('booster-badge--ad', 'booster-badge--coin');
 
       if (isExpandMax) {
         badge.textContent = '已满';
-        badge.classList.remove('booster-badge--ad');
       } else if (count > 0) {
         badge.textContent = String(count);
-        badge.classList.remove('booster-badge--ad');
+      } else if (save.coins >= cost) {
+        badge.textContent = `💰${cost}`;
+        badge.classList.add('booster-badge--coin');
       } else {
         badge.textContent = '📺 领';
         badge.classList.add('booster-badge--ad');
@@ -488,8 +494,10 @@
     el.packProgressText.textContent = `${state.packsCleared} / ${state.totalPacks}`;
     const showCombo = state.status === 'playing' && state.combo > 0 && state.comboGrace > 0;
     el.comboPill.classList.toggle('hidden', !showCombo);
+    el.comboPill.classList.toggle('combo-pill--fever', showCombo && state.combo >= 3);
     if (showCombo) {
-      el.comboPill.textContent = `🔥 连击 ×${state.combo} · 剩${state.comboGrace}步`;
+      const prefix = state.combo >= 3 ? '⚡ 狂热连击' : '🔥 连击';
+      el.comboPill.textContent = `${prefix} ×${state.combo} · 剩${state.comboGrace}步`;
     }
     const pct = state.totalPacks > 0 ? Math.round((state.packsCleared / state.totalPacks) * 100) : 0;
     el.packProgressBar.style.width = `${pct}%`;
@@ -511,10 +519,11 @@
 
     const deadlocked = state.status === 'playing' && isDeadlocked(state);
     el.deadlockBanner.classList.toggle('hidden', !deadlocked);
+    el.autoCompleteBtn.classList.toggle('hidden', deadlocked || !canAutoComplete(state));
     renderBoosters(deadlocked);
   }
 
-  function performMove(srcShelfId, itemIndex, dstShelfId) {
+  function performMove(srcShelfId, itemIndex, dstShelfId, forceBatch = false) {
     clearHint();
     if (!canMoveItem(state, srcShelfId, itemIndex, dstShelfId)) {
       const src = findShelf(state, srcShelfId);
@@ -539,7 +548,12 @@
       return;
     }
 
-    const res = moveItem(state, srcShelfId, itemIndex, dstShelfId);
+    const srcBefore = findShelf(state, srcShelfId);
+    const dstBefore = findShelf(state, dstShelfId);
+    const movingId = srcBefore && srcBefore.layers[0][itemIndex];
+    const shouldBatch =
+      forceBatch || Boolean(dstBefore && movingId && dstBefore.layers[0].includes(movingId));
+    const res = moveItem(state, srcShelfId, itemIndex, dstShelfId, { batch: shouldBatch });
     selected = null;
     const dstAfter = findShelf(state, dstShelfId);
     const landedIdx = !res.packed && dstAfter ? dstAfter.layers[0].length - 1 : -1;
@@ -564,13 +578,18 @@
         el.appShell.classList.add('app-shell--bump');
       }
       const msg =
-        res.packed.combo > 1
-          ? `🔥 连击 ×${res.packed.combo}！打包成功 +${res.packed.coinsEarned} 💰`
-          : `✨ 打包成功！+${res.packed.coinsEarned} 💰`;
+        res.packed.combo >= 3
+          ? `⚡ 狂热连击 ×${res.packed.combo}！打包 +${res.packed.coinsEarned} 💰`
+          : res.packed.combo > 1
+            ? `🔥 连击 ×${res.packed.combo}！打包成功 +${res.packed.coinsEarned} 💰`
+            : `✨ 打包成功！+${res.packed.coinsEarned} 💰`;
       showToast(msg, res.packed.combo > 1);
     } else {
       sfx.place();
       vibrate(8);
+      if (res.movedCount > 1) {
+        showToast(`⚡ 同款连携移入 ×${res.movedCount}！`);
+      }
     }
 
     if (res.revealedShelfIds.length > 0) {
@@ -669,7 +688,21 @@
       return score(b) - score(a);
     });
 
-    performMove(shelfId, itemIndex, candidates[0].id);
+    performMove(shelfId, itemIndex, candidates[0].id, true);
+  }
+
+  function runAutoComplete() {
+    if (state.status !== 'playing' || !canAutoComplete(state)) return;
+    const step = () => {
+      if (state.status !== 'playing') return;
+      const hint = findBestHint(state);
+      if (!hint || hint.score < 100) return;
+      performMove(hint.srcShelfId, hint.itemIndex, hint.dstShelfId, true);
+      if (state.status === 'playing' && canAutoComplete(state)) {
+        setTimeout(step, 130);
+      }
+    };
+    step();
   }
 
   function executeBooster(type) {
@@ -753,6 +786,7 @@
       const canAutoUse = !(type === 'undo' && state.history.length === 0);
       if (canAutoUse && executeBooster(type)) {
         state.boosters[type] -= 1;
+        state.boostersUsed = (state.boostersUsed || 0) + 1;
       } else {
         showToast(`🎬 补给到账！获得「${BOOSTER_LABELS[type]}」×${BOOSTER_REFILL[type]}`);
       }
@@ -768,18 +802,29 @@
       return;
     }
 
-    if (state.boosters[type] <= 0) {
-      openSimulatedAd(type);
-      return;
-    }
-
     if (type === 'undo' && state.history.length === 0) {
       showToast('还没有可以撤回的步骤哦~');
       return;
     }
 
+    if (state.boosters[type] <= 0) {
+      const cost = BOOSTER_COSTS[type];
+      if (save.coins >= cost) {
+        if (executeBooster(type)) {
+          save.coins -= cost;
+          state.boostersUsed = (state.boostersUsed || 0) + 1;
+          persistSave();
+          render();
+        }
+        return;
+      }
+      openSimulatedAd(type);
+      return;
+    }
+
     if (executeBooster(type)) {
       state.boosters[type] -= 1;
+      state.boostersUsed = (state.boostersUsed || 0) + 1;
       syncBoostersToSave();
       render();
     }
@@ -877,6 +922,8 @@
     clearInterval(adTimer);
     el.adModal.classList.add('hidden');
   });
+
+  el.autoCompleteBtn.addEventListener('click', runAutoComplete);
 
   [el.btnUndo, el.btnExpand, el.btnShuffle, el.btnHint].forEach((btn) => {
     btn.addEventListener('click', () => handleBoosterClick(btn.dataset.booster));

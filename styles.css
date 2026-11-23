@@ -293,6 +293,12 @@ body {
   animation: popIn 180ms ease;
 }
 
+.combo-pill--fever {
+  background: linear-gradient(135deg, #f03e3e 0%, #ae3ec9 100%);
+  box-shadow: 0 0 12px rgba(240, 62, 62, 0.45);
+  animation: hintPulse 0.6s infinite alternate;
+}
+
 .theme-label {
   font-weight: 700;
   color: var(--theme-accent);
@@ -622,6 +628,21 @@ body {
   font-size: 11px;
 }
 
+.auto-complete-btn {
+  margin: 0 12px 6px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #fcc419 0%, #f08c00 100%);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(240, 140, 0, 0.32);
+  animation: hintPulse 0.8s infinite alternate;
+}
+
 .deadlock-banner {
   margin: 0 12px 6px;
   padding: 8px 12px;
@@ -700,6 +721,10 @@ body {
 
 .booster-badge--ad {
   background: #e8590c;
+}
+
+.booster-badge--coin {
+  background: linear-gradient(135deg, #f59f00 0%, #d9480f 100%);
 }
 
 .modal-backdrop {

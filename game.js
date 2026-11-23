@@ -7,6 +7,7 @@
       : root.ShelfLevels;
 
   const DEFAULT_BOOSTERS = { undo: 0, expand: 0, shuffle: 0, hint: 0 };
+  const BOOSTER_COSTS = { undo: 25, hint: 30, shuffle: 50, expand: 60 };
   const COMBO_GRACE_MOVES = 3;
 
   function getRowWidth(row) {
@@ -52,7 +53,9 @@
       packsCleared: state.packsCleared,
       coins: state.coins,
       combo: state.combo,
+      maxCombo: state.maxCombo,
       comboGrace: state.comboGrace,
+      boostersUsed: state.boostersUsed,
       status: state.status,
     };
   }
@@ -95,7 +98,9 @@
       packsCleared: 0,
       totalPacks: countTotalPacks(level.shelves),
       combo: 0,
+      maxCombo: 0,
       comboGrace: 0,
+      boostersUsed: 0,
       status: 'playing',
     };
   }
@@ -163,7 +168,7 @@
     return true;
   }
 
-  function moveItem(state, srcShelfId, itemIndex, dstShelfId) {
+  function moveItem(state, srcShelfId, itemIndex, dstShelfId, options = {}) {
     if (!canMoveItem(state, srcShelfId, itemIndex, dstShelfId)) {
       return { ok: false, reason: 'invalid_move' };
     }
@@ -174,6 +179,22 @@
     const dst = findShelf(state, dstShelfId);
     const [itemId] = src.layers[0].splice(itemIndex, 1);
     dst.layers[0].push(itemId);
+    let movedCount = 1;
+
+    if (options && options.batch) {
+      const itemWidth = ITEMS[itemId].width;
+      while (
+        !isRowPacked(dst.layers[0], dst.capacity) &&
+        getRemainingWidth(dst) >= itemWidth
+      ) {
+        const nextIdx = src.layers[0].indexOf(itemId);
+        if (nextIdx === -1) break;
+        src.layers[0].splice(nextIdx, 1);
+        dst.layers[0].push(itemId);
+        movedCount += 1;
+      }
+    }
+
     state.moves += 1;
 
     let packed = null;
@@ -182,10 +203,12 @@
       dst.layers[0] = [];
       state.packsCleared += 1;
       state.combo += 1;
+      state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
       state.comboGrace = COMBO_GRACE_MOVES;
-      const coinsEarned = 10 + Math.max(0, state.combo - 1) * 5;
+      const isFever = state.combo >= 3;
+      const coinsEarned = 10 + Math.max(0, state.combo - 1) * 5 + (isFever ? 5 : 0);
       state.coins += coinsEarned;
-      packed = { shelfId: dst.id, itemId: packedItemId, coinsEarned, combo: state.combo };
+      packed = { shelfId: dst.id, itemId: packedItemId, coinsEarned, combo: state.combo, isFever };
     } else if (state.comboGrace > 0) {
       state.comboGrace -= 1;
       if (state.comboGrace === 0) state.combo = 0;
@@ -202,7 +225,7 @@
 
     const deadlocked = !won && isDeadlocked(state);
 
-    return { ok: true, itemId, packed, revealedShelfIds, won, deadlocked };
+    return { ok: true, itemId, movedCount, packed, revealedShelfIds, won, deadlocked };
   }
 
   function undoMove(state) {
@@ -216,7 +239,9 @@
     state.packsCleared = prev.packsCleared;
     state.coins = prev.coins;
     state.combo = prev.combo;
+    state.maxCombo = prev.maxCombo || 0;
     state.comboGrace = prev.comboGrace || 0;
+    state.boostersUsed = prev.boostersUsed || 0;
     state.status = prev.status;
     return { ok: true };
   }
@@ -404,6 +429,13 @@
     return { valid: errors.length === 0, errors };
   }
 
+  function canAutoComplete(state) {
+    if (!state || state.status !== 'playing' || state.packsCleared < 1) return false;
+    if (state.shelves.some((s) => s.layers.length > 1)) return false;
+    const hint = findBestHint(state);
+    return Boolean(hint && hint.score >= 100);
+  }
+
   function calculateStars(moves, totalPacks) {
     const packs = Math.max(1, totalPacks || 1);
     if (moves <= packs * 4) return 3;
@@ -413,6 +445,7 @@
 
   const api = {
     DEFAULT_BOOSTERS,
+    BOOSTER_COSTS,
     COMBO_GRACE_MOVES,
     createGameState,
     getRowWidth,
@@ -427,6 +460,7 @@
     expandTempTray,
     shuffleFrontRows,
     findBestHint,
+    canAutoComplete,
     validateLevel,
     calculateStars,
   };
