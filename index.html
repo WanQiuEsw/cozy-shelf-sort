@@ -41,8 +41,9 @@
           <button type="button" class="btn-secondary start-sub-btn" id="startLevelBtn">📂 选择关卡</button>
           <button type="button" class="btn-secondary start-sub-btn" id="startDailyBtn">📅 每日盲盒</button>
         </div>
+        <button type="button" class="btn-secondary start-sub-btn" id="startRankBtn">🏆 店长天梯榜 · 个人记录与成就</button>
       </div>
-      <p class="start-footnote">纯单机本地存档 · 道具可通过激励广告免费补给</p>
+      <p class="start-footnote">纯单机本地存档 · 道具支持金币直购或广告免费补给</p>
     </section>
 
     <header class="hud-top">
@@ -53,6 +54,7 @@
       </button>
       <div class="hud-actions">
         <div class="pill-badge" title="累计金币">💰 <span id="coinCount">0</span></div>
+        <button type="button" class="icon-btn" id="rankBtn" aria-label="排行榜与记录" title="排行榜与记录">🏆</button>
         <button type="button" class="icon-btn" id="homeBtn" aria-label="返回开始界面" title="返回开始界面">🏠</button>
         <button type="button" class="icon-btn" id="soundToggleBtn" aria-label="切换音效" title="切换音效">🔊</button>
         <button type="button" class="icon-btn" id="restartBtn" aria-label="重新开始" title="重新开始">🔄</button>
@@ -69,6 +71,11 @@
       </div>
       <div class="progress-track">
         <div class="progress-fill" id="packProgressBar"></div>
+      </div>
+      <div class="live-hud-bar">
+        <span>👣 步数 <strong id="hudMoves">0</strong> <em id="hudStarTarget">(3⭐≤10)</em></span>
+        <span>⏱️ <strong id="hudTimer">00:00</strong></span>
+        <span>🏆 最佳 <strong id="hudBestRecord">--</strong></span>
       </div>
       <p class="level-tip" id="levelTip"></p>
     </section>
@@ -136,16 +143,35 @@
       <div class="win-emoji">🎉</div>
       <div class="win-stars" id="winStars" aria-label="本关星级评价"></div>
       <h2 id="winModalTitle">理货大成功！</h2>
+      <div class="win-records hidden" id="winRecordBadges"></div>
       <p class="modal-desc" id="winSummary"></p>
-      <div class="win-stats">
+      <div class="win-stats win-stats--four">
         <div class="stat-box"><span>步数</span><strong id="winMoves">0</strong></div>
-        <div class="stat-box"><span>打包箱数</span><strong id="winPacks">0</strong></div>
+        <div class="stat-box"><span>用时</span><strong id="winTime">00:00</strong></div>
+        <div class="stat-box"><span>最高连击</span><strong id="winPacks">×1</strong></div>
         <div class="stat-box"><span>本关金币</span><strong id="winCoins">+0</strong></div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn-secondary" id="winReplayBtn">再玩一次</button>
+        <button type="button" class="btn-secondary" id="winReplayBtn">刷个纪录</button>
         <button type="button" class="btn-primary" id="nextLevelBtn">下一关 ➜</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 排行榜与个人记录弹窗 -->
+  <div class="modal-backdrop hidden" id="rankModal" role="dialog" aria-modal="true" aria-labelledby="rankModalTitle">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="rankModalTitle">🏆 店长荣誉与个人记录</h2>
+        <button type="button" class="icon-btn" id="closeRankModalBtn" aria-label="关闭">✕</button>
+      </div>
+      <div class="rank-summary-banner" id="rankSummaryBanner"></div>
+      <div class="rank-tabs" role="tablist">
+        <button type="button" class="rank-tab rank-tab--active" data-tab="ladder" id="tabLadderBtn">🏆 店长天梯</button>
+        <button type="button" class="rank-tab" data-tab="records" id="tabRecordsBtn">📋 关卡最佳</button>
+        <button type="button" class="rank-tab" data-tab="achievements" id="tabAchBtn">🎖️ 成就图鉴</button>
+      </div>
+      <div class="rank-body" id="rankModalBody"></div>
     </div>
   </div>
 

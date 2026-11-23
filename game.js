@@ -471,10 +471,112 @@
     return 1;
   }
 
+  function updateLevelRecord(prev, result) {
+    const old = prev && typeof prev === 'object' ? prev : {};
+    const prevMoves = Number.isInteger(old.bestMoves) && old.bestMoves > 0 ? old.bestMoves : null;
+    const prevTime = Number.isInteger(old.bestTimeSec) && old.bestTimeSec > 0 ? old.bestTimeSec : null;
+    const moves = Math.max(1, Number(result.moves) || 1);
+    const timeSec = Math.max(1, Number(result.timeSec) || 1);
+    const stars = Math.max(1, Number(result.stars) || 1);
+    const maxCombo = Math.max(0, Number(result.maxCombo) || 0);
+    const earnedCrown = (Number(result.boostersUsed) || 0) === 0;
+
+    const improvedMoves = prevMoves !== null && moves < prevMoves;
+    const improvedTime = prevTime !== null && timeSec < prevTime;
+    const isFirstClear = prevMoves === null;
+    const isNewCrown = earnedCrown && !old.crown;
+
+    const record = {
+      stars: Math.max(Number(old.stars) || 0, stars),
+      bestMoves: prevMoves !== null ? Math.min(prevMoves, moves) : moves,
+      bestTimeSec: prevTime !== null ? Math.min(prevTime, timeSec) : timeSec,
+      maxCombo: Math.max(Number(old.maxCombo) || 0, maxCombo),
+      crown: Boolean(old.crown || earnedCrown),
+      clears: (Number(old.clears) || 0) + 1,
+    };
+
+    return {
+      record,
+      isFirstClear,
+      improvedMoves,
+      moveDelta: prevMoves !== null ? Math.max(0, prevMoves - moves) : 0,
+      improvedTime,
+      timeDelta: prevTime !== null ? Math.max(0, prevTime - timeSec) : 0,
+      earnedCrown,
+      isNewCrown,
+    };
+  }
+
+  const MANAGER_LADDER = [
+    { name: '传奇收纳神 · 店长S', badge: '👑', score: 4350, title: '全满星零道具传说' },
+    { name: '秋名山理货王 · 阿杰', badge: '🏆', score: 3600, title: '极速连击主理人' },
+    { name: '强迫症满星控 · 小满', badge: '✨', score: 2850, title: '高阶空间规划师' },
+    { name: '烘焙甜点师 · 桃子', badge: '🍰', score: 2150, title: '甜品区金牌店长' },
+    { name: '猫咖主理人 · 团子', badge: '🐾', score: 1500, title: '萌宠货架资深组长' },
+    { name: '彩妆陈列师 · 薇薇', badge: '💄', score: 950, title: '精致梳妆收纳达人' },
+    { name: '冰柜补货手 · 阿伟', badge: '🥤', score: 450, title: '夜班勤奋理货员' },
+    { name: '摸鱼见习生 · 小新', badge: '🌱', score: 100, title: '刚入职便利店萌新' },
+  ];
+
+  function buildLeaderboard(stats = {}) {
+    const totalStars = Number(stats.totalStars) || 0;
+    const totalCrowns = Number(stats.totalCrowns) || 0;
+    const dailyClears = Number(stats.dailyClears) || 0;
+    const totalPacks = Number(stats.totalPacks) || 0;
+    const playerScore = totalStars * 100 + totalCrowns * 55 + dailyClears * 80 + totalPacks * 2;
+
+    const playerEntry = {
+      name: '我（本店长）',
+      badge: '🧑',
+      score: playerScore,
+      title: `${totalStars}⭐ · ${totalCrowns}👑 · 打包${totalPacks}箱`,
+      isPlayer: true,
+    };
+
+    const entries = [...MANAGER_LADDER, playerEntry].sort((a, b) =>
+      b.score !== a.score ? b.score - a.score : (b.isPlayer ? 1 : -1)
+    );
+    const playerIndex = entries.findIndex((e) => e.isPlayer);
+    const nextRival = playerIndex > 0 ? entries[playerIndex - 1] : null;
+
+    return {
+      playerScore,
+      playerRank: playerIndex + 1,
+      nextRival,
+      entries,
+    };
+  }
+
+  const ACHIEVEMENTS = [
+    { id: 'first_clear', icon: '📦', title: '初次理货大捷', desc: '首次通关任意关卡', reward: 30, check: (s) => s.clearedCount >= 1 },
+    { id: 'combo_master', icon: '🔥', title: '狂热连击达人', desc: '单局最高连击达到 ×4', reward: 50, check: (s) => s.bestCombo >= 4 },
+    { id: 'speed_runner', icon: '⚡', title: '秋名山闪电手', desc: '35 秒内通关任意关卡', reward: 50, check: (s) => s.fastestTimeSec > 0 && s.fastestTimeSec <= 35 },
+    { id: 'crown_hunter', icon: '👑', title: '零道具硬核派', desc: '累计获得 3 枚零道具金冠', reward: 80, check: (s) => s.totalCrowns >= 3 },
+    { id: 'daily_star', icon: '📅', title: '盲盒打卡店长', desc: '完成 1 次每日盲盒挑战', reward: 60, check: (s) => s.dailyClears >= 1 },
+    { id: 'star_master', icon: '🌟', title: '强迫症满星王', desc: '累计收集 24 颗通关星星', reward: 100, check: (s) => s.totalStars >= 24 },
+  ];
+
+  function evaluateAchievements(stats, unlockedMap = {}) {
+    const newlyUnlocked = [];
+    let rewardCoins = 0;
+    const nextUnlocked = { ...unlockedMap };
+
+    for (const ach of ACHIEVEMENTS) {
+      if (!nextUnlocked[ach.id] && ach.check(stats)) {
+        nextUnlocked[ach.id] = true;
+        newlyUnlocked.push(ach);
+        rewardCoins += ach.reward;
+      }
+    }
+    return { unlockedMap: nextUnlocked, newlyUnlocked, rewardCoins };
+  }
+
   const api = {
     DEFAULT_BOOSTERS,
     BOOSTER_COSTS,
     COMBO_GRACE_MOVES,
+    MANAGER_LADDER,
+    ACHIEVEMENTS,
     createGameState,
     getRowWidth,
     getRemainingWidth,
@@ -493,6 +595,9 @@
     validateLevel,
     getThreeStarMoves,
     calculateStars,
+    updateLevelRecord,
+    buildLeaderboard,
+    evaluateAchievements,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

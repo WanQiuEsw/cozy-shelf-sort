@@ -20,6 +20,9 @@ const {
   validateLevel,
   getThreeStarMoves,
   calculateStars,
+  updateLevelRecord,
+  buildLeaderboard,
+  evaluateAchievements,
 } = require('./game.js');
 
 test('all 12 levels pass structural validation and start playable across 4 themes', () => {
@@ -321,4 +324,43 @@ test('locked shelves block moves until required packs are cleared and daily chal
   assert.equal(getThreeStarMoves(7, 20), 20);
   assert.equal(calculateStars(20, 7, 20), 3);
   assert.equal(calculateStars(21, 7, 20), 2);
+});
+
+test('personal best records, manager leaderboard, and achievements compute improvements accurately', () => {
+  const first = updateLevelRecord(null, {
+    stars: 2,
+    moves: 14,
+    timeSec: 40,
+    maxCombo: 2,
+    boostersUsed: 1,
+  });
+  assert.equal(first.isFirstClear, true);
+  assert.equal(first.earnedCrown, false);
+  assert.equal(first.record.bestMoves, 14);
+
+  const second = updateLevelRecord(first.record, {
+    stars: 3,
+    moves: 10,
+    timeSec: 28,
+    maxCombo: 4,
+    boostersUsed: 0,
+  });
+  assert.equal(second.improvedMoves, true);
+  assert.equal(second.moveDelta, 4);
+  assert.equal(second.improvedTime, true);
+  assert.equal(second.timeDelta, 12);
+  assert.equal(second.earnedCrown, true);
+  assert.equal(second.isNewCrown, true);
+  assert.equal(second.record.crown, true);
+
+  const lb = buildLeaderboard({ totalStars: 18, totalCrowns: 4, dailyClears: 1, totalPacks: 35 });
+  assert.ok(lb.playerScore > 2000);
+  assert.ok(lb.playerRank >= 1 && lb.playerRank <= lb.entries.length);
+
+  const ach = evaluateAchievements(
+    { clearedCount: 3, bestCombo: 4, fastestTimeSec: 28, totalCrowns: 3, dailyClears: 1, totalStars: 24 },
+    {}
+  );
+  assert.equal(ach.newlyUnlocked.length, 6);
+  assert.ok(ach.rewardCoins >= 300);
 });

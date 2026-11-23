@@ -5,6 +5,7 @@
   const {
     DEFAULT_BOOSTERS,
     BOOSTER_COSTS,
+    ACHIEVEMENTS,
     createGameState,
     getRowWidth,
     getRemainingWidth,
@@ -22,6 +23,9 @@
     canAutoComplete,
     getThreeStarMoves,
     calculateStars,
+    updateLevelRecord,
+    buildLeaderboard,
+    evaluateAchievements,
   } = window.ShelfGame;
 
   const STORAGE_KEY = 'cozy_shelf_sort_v1';
@@ -37,6 +41,8 @@
     startGameBtn: document.getElementById('startGameBtn'),
     startLevelBtn: document.getElementById('startLevelBtn'),
     startDailyBtn: document.getElementById('startDailyBtn'),
+    startRankBtn: document.getElementById('startRankBtn'),
+    rankBtn: document.getElementById('rankBtn'),
     homeBtn: document.getElementById('homeBtn'),
     levelSwitchBtn: document.getElementById('levelSwitchBtn'),
     levelTitle: document.getElementById('levelTitle'),
@@ -48,6 +54,10 @@
     comboPill: document.getElementById('comboPill'),
     packProgressText: document.getElementById('packProgressText'),
     packProgressBar: document.getElementById('packProgressBar'),
+    hudMoves: document.getElementById('hudMoves'),
+    hudStarTarget: document.getElementById('hudStarTarget'),
+    hudTimer: document.getElementById('hudTimer'),
+    hudBestRecord: document.getElementById('hudBestRecord'),
     levelTip: document.getElementById('levelTip'),
     toastSlot: document.getElementById('toastSlot'),
     shelvesGrid: document.getElementById('shelvesGrid'),
@@ -69,12 +79,21 @@
     levelList: document.getElementById('levelList'),
     winModal: document.getElementById('winModal'),
     winStars: document.getElementById('winStars'),
+    winRecordBadges: document.getElementById('winRecordBadges'),
     winSummary: document.getElementById('winSummary'),
     winMoves: document.getElementById('winMoves'),
+    winTime: document.getElementById('winTime'),
     winPacks: document.getElementById('winPacks'),
     winCoins: document.getElementById('winCoins'),
     winReplayBtn: document.getElementById('winReplayBtn'),
     nextLevelBtn: document.getElementById('nextLevelBtn'),
+    rankModal: document.getElementById('rankModal'),
+    closeRankModalBtn: document.getElementById('closeRankModalBtn'),
+    rankSummaryBanner: document.getElementById('rankSummaryBanner'),
+    rankModalBody: document.getElementById('rankModalBody'),
+    tabLadderBtn: document.getElementById('tabLadderBtn'),
+    tabRecordsBtn: document.getElementById('tabRecordsBtn'),
+    tabAchBtn: document.getElementById('tabAchBtn'),
     adModal: document.getElementById('adModal'),
     adRewardDesc: document.getElementById('adRewardDesc'),
     adTimerText: document.getElementById('adTimerText'),
@@ -106,6 +125,13 @@
         coins: Number.isFinite(parsed.coins) ? parsed.coins : 0,
         muted: Boolean(parsed.muted),
         bestStars: parsed.bestStars && typeof parsed.bestStars === 'object' ? parsed.bestStars : {},
+        records: parsed.records && typeof parsed.records === 'object' ? parsed.records : {},
+        achievements:
+          parsed.achievements && typeof parsed.achievements === 'object' ? parsed.achievements : {},
+        stats:
+          parsed.stats && typeof parsed.stats === 'object'
+            ? parsed.stats
+            : { totalPacks: 0, dailyClears: 0, bestCombo: 0, fastestTimeSec: 0 },
         boosters: sanitizeBoosters(parsed.boosters),
       };
     } catch {
@@ -115,6 +141,9 @@
         coins: 0,
         muted: false,
         bestStars: {},
+        records: {},
+        achievements: {},
+        stats: { totalPacks: 0, dailyClears: 0, bestCombo: 0, fastestTimeSec: 0 },
         boosters: { ...DEFAULT_BOOSTERS },
       };
     }
@@ -193,6 +222,9 @@
   let toastTimer = null;
   let hintTimer = null;
   let adTimer = null;
+  let clockTimer = null;
+  let elapsedSec = 0;
+  let activeRankTab = 'ladder';
   let animFlags = {
     shakeShelfId: null,
     packedShelfId: null,
@@ -231,6 +263,41 @@
 
   function getTotalStars() {
     return LEVELS.reduce((sum, lvl) => sum + (Number(save.bestStars[lvl.id]) || 0), 0);
+  }
+
+  function getTotalCrowns() {
+    return LEVELS.reduce((sum, lvl) => sum + (save.records[lvl.id] && save.records[lvl.id].crown ? 1 : 0), 0);
+  }
+
+  function getAggregateStats() {
+    const clearedCount = LEVELS.filter((lvl) => Number(save.bestStars[lvl.id]) > 0).length;
+    return {
+      totalStars: getTotalStars(),
+      totalCrowns: getTotalCrowns(),
+      clearedCount,
+      totalPacks: Number(save.stats && save.stats.totalPacks) || 0,
+      dailyClears: Number(save.stats && save.stats.dailyClears) || 0,
+      bestCombo: Number(save.stats && save.stats.bestCombo) || 0,
+      fastestTimeSec: Number(save.stats && save.stats.fastestTimeSec) || 0,
+    };
+  }
+
+  function formatTime(sec) {
+    const s = Math.max(0, Math.floor(sec || 0));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+  }
+
+  function startClock() {
+    clearInterval(clockTimer);
+    elapsedSec = 0;
+    clockTimer = setInterval(() => {
+      if (state.status === 'playing' && el.startScreen.classList.contains('hidden')) {
+        elapsedSec += 1;
+        if (el.hudTimer) el.hudTimer.textContent = formatTime(elapsedSec);
+      }
+    }, 1000);
   }
 
   function formatStars(count) {
@@ -281,6 +348,8 @@
     el.startScreen.classList.add('hidden');
     el.winModal.classList.add('hidden');
     el.levelModal.classList.add('hidden');
+    el.rankModal.classList.add('hidden');
+    startClock();
     render();
   }
 
@@ -543,6 +612,15 @@
     }
     const pct = state.totalPacks > 0 ? Math.round((state.packsCleared / state.totalPacks) * 100) : 0;
     el.packProgressBar.style.width = `${pct}%`;
+    const target3 = getThreeStarMoves(state.totalPacks, level.parMoves);
+    el.hudMoves.textContent = String(state.moves);
+    el.hudStarTarget.textContent = `(3⭐≤${target3})`;
+    el.hudTimer.textContent = formatTime(elapsedSec);
+    const rec = save.records[level.id];
+    el.hudBestRecord.textContent =
+      rec && rec.bestMoves
+        ? `${rec.bestMoves}步/${rec.bestTimeSec}s${rec.crown ? '👑' : ''}`
+        : '未通关';
     el.levelTip.textContent = level.tip;
 
     el.shelvesGrid.innerHTML = '';
@@ -910,10 +988,16 @@
       right.className = 'level-item-right';
       const starSpan = document.createElement('span');
       starSpan.className = 'level-stars';
-      starSpan.textContent = formatStars(Number(save.bestStars[lvl.id]) || 0);
+      const rec = save.records[lvl.id];
+      const crownIcon = rec && rec.crown ? '👑 ' : '';
+      starSpan.textContent = crownIcon + formatStars(Number(save.bestStars[lvl.id]) || 0);
       const statusSpan = document.createElement('span');
       statusSpan.textContent =
-        idx === state.levelIndex ? '当前' : idx <= save.unlockedLevelIndex ? '已解锁' : '可试玩';
+        rec && rec.bestMoves
+          ? `最佳 ${rec.bestMoves}步 · ${rec.bestTimeSec}s`
+          : idx === state.levelIndex
+            ? '当前'
+            : '未通关';
       right.appendChild(starSpan);
       right.appendChild(statusSpan);
       item.appendChild(left);
@@ -926,10 +1010,53 @@
   }
 
   function openWinModal() {
+    clearInterval(clockTimer);
     const level = getCurrentLevel();
+    const timeSec = Math.max(1, elapsedSec);
     const stars = calculateStars(state.moves, state.totalPacks, level.parMoves);
-    save.bestStars[level.id] = Math.max(Number(save.bestStars[level.id]) || 0, stars);
+    const recUpdate = updateLevelRecord(save.records[level.id], {
+      stars,
+      moves: state.moves,
+      timeSec,
+      maxCombo: state.maxCombo,
+      boostersUsed: state.boostersUsed,
+    });
+    save.records[level.id] = recUpdate.record;
+    save.bestStars[level.id] = recUpdate.record.stars;
+
+    if (!save.stats) {
+      save.stats = { totalPacks: 0, dailyClears: 0, bestCombo: 0, fastestTimeSec: 0 };
+    }
+    save.stats.totalPacks = (Number(save.stats.totalPacks) || 0) + state.packsCleared;
+    if (state.isDaily) save.stats.dailyClears = (Number(save.stats.dailyClears) || 0) + 1;
+    save.stats.bestCombo = Math.max(Number(save.stats.bestCombo) || 0, state.maxCombo || 0);
+    save.stats.fastestTimeSec =
+      save.stats.fastestTimeSec > 0 ? Math.min(save.stats.fastestTimeSec, timeSec) : timeSec;
+
+    const achRes = evaluateAchievements(getAggregateStats(), save.achievements);
+    save.achievements = achRes.unlockedMap;
+    if (achRes.rewardCoins > 0) {
+      save.coins += achRes.rewardCoins;
+    }
     persistSave();
+
+    const badges = [];
+    if (recUpdate.isFirstClear) badges.push('🎉 首次通关记录！');
+    if (recUpdate.improvedMoves) badges.push(`🔥 刷新最少步数 (-${recUpdate.moveDelta}步)！`);
+    if (recUpdate.improvedTime) badges.push(`⚡ 刷新最快用时 (-${recUpdate.timeDelta}s)！`);
+    if (recUpdate.earnedCrown) badges.push('👑 零道具金冠达成！');
+    for (const ach of achRes.newlyUnlocked) {
+      badges.push(`🎖️ 成就「${ach.title}」+${ach.reward}💰`);
+    }
+
+    el.winRecordBadges.innerHTML = '';
+    el.winRecordBadges.classList.toggle('hidden', badges.length === 0);
+    for (const text of badges) {
+      const pill = document.createElement('span');
+      pill.className = 'win-record-pill';
+      pill.textContent = text;
+      el.winRecordBadges.appendChild(pill);
+    }
 
     const isLast = !state.isDaily && state.levelIndex >= LEVELS.length - 1;
     el.winStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
@@ -939,10 +1066,107 @@
         ? `全部 ${LEVELS.length} 个主线关卡已打通！你可以挑战每日盲盒或冲刺全三星。`
         : `已完成「${level.title}」，获得 ${stars} 星评价！`;
     el.winMoves.textContent = String(state.moves);
-    el.winPacks.textContent = String(state.packsCleared);
-    el.winCoins.textContent = `+${state.coins}`;
+    el.winTime.textContent = formatTime(timeSec);
+    el.winPacks.textContent = `×${Math.max(1, state.maxCombo || 1)}`;
+    el.winCoins.textContent = `+${state.coins + achRes.rewardCoins}`;
     el.nextLevelBtn.textContent = state.isDaily ? '返回主线 ➜' : isLast ? '回到第 1 关' : '下一关 ➜';
+    render();
     el.winModal.classList.remove('hidden');
+  }
+
+  function renderRankModal(tab = activeRankTab) {
+    activeRankTab = tab;
+    const stats = getAggregateStats();
+    const lb = buildLeaderboard(stats);
+
+    const nextHint = lb.nextRival
+      ? `距超越「${lb.nextRival.name}」还差 ${Math.max(1, lb.nextRival.score - lb.playerScore)} 分`
+      : '已登顶便利店传奇店长榜首！';
+    el.rankSummaryBanner.innerHTML =
+      `当前排名：<strong>第 ${lb.playerRank} 名</strong>（综合评分 <strong>${lb.playerScore}</strong>）· ` +
+      `累计 <strong>${stats.totalStars}⭐</strong> / <strong>${stats.totalCrowns}👑</strong><br>${nextHint}`;
+
+    [
+      { btn: el.tabLadderBtn, key: 'ladder' },
+      { btn: el.tabRecordsBtn, key: 'records' },
+      { btn: el.tabAchBtn, key: 'achievements' },
+    ].forEach(({ btn, key }) => {
+      btn.classList.toggle('rank-tab--active', key === activeRankTab);
+    });
+
+    el.rankModalBody.innerHTML = '';
+
+    if (activeRankTab === 'ladder') {
+      lb.entries.forEach((entry, idx) => {
+        const row = document.createElement('div');
+        row.className = entry.isPlayer ? 'rank-row rank-row--player' : 'rank-row';
+        row.innerHTML = `
+          <div class="rank-row-left">
+            <span class="rank-num">${idx + 1}</span>
+            <div>
+              <div class="rank-row-title">${entry.badge} ${entry.name}</div>
+              <div class="rank-row-sub">${entry.title}</div>
+            </div>
+          </div>
+          <span class="rank-row-score">${entry.score} 分</span>
+        `;
+        el.rankModalBody.appendChild(row);
+      });
+      return;
+    }
+
+    if (activeRankTab === 'records') {
+      LEVELS.forEach((lvl, idx) => {
+        const rec = save.records[lvl.id];
+        const row = document.createElement('div');
+        row.className = 'rank-row';
+        const left = document.createElement('div');
+        left.className = 'rank-row-left';
+        const starText = formatStars(Number(save.bestStars[lvl.id]) || 0);
+        const recText =
+          rec && rec.bestMoves
+            ? `最佳 ${rec.bestMoves} 步 (3⭐≤${lvl.parMoves}) · 用时 ${rec.bestTimeSec}s · 连击 ×${rec.maxCombo || 1}`
+            : `尚未通关 · 3⭐目标 ≤${lvl.parMoves} 步`;
+        left.innerHTML = `
+          <span class="rank-num">${rec && rec.crown ? '👑' : idx + 1}</span>
+          <div>
+            <div class="rank-row-title">${lvl.title} <span class="level-stars">${starText}</span></div>
+            <div class="rank-row-sub">${recText}</div>
+          </div>
+        `;
+        const playBtn = document.createElement('button');
+        playBtn.type = 'button';
+        playBtn.className = 'pill-btn';
+        playBtn.textContent = rec && rec.bestMoves ? '刷纪录' : '挑战';
+        playBtn.addEventListener('click', () => startLevel(idx));
+        row.appendChild(left);
+        row.appendChild(playBtn);
+        el.rankModalBody.appendChild(row);
+      });
+      return;
+    }
+
+    for (const ach of ACHIEVEMENTS) {
+      const unlocked = Boolean(save.achievements && save.achievements[ach.id]);
+      const row = document.createElement('div');
+      row.className = unlocked ? 'rank-row rank-row--unlocked' : 'rank-row';
+      row.innerHTML = `
+        <div class="rank-row-left">
+          <span class="rank-num">${ach.icon}</span>
+          <div>
+            <div class="rank-row-title">${ach.title}</div>
+            <div class="rank-row-sub">${ach.desc}</div>
+          </div>
+        </div>
+        <span class="rank-row-score">${unlocked ? '✅ 已达成' : `+${ach.reward}💰`}</span>
+      `;
+      el.rankModalBody.appendChild(row);
+    }
+  }
+
+  function openRankModal(tab = 'ladder') {
+    renderRankModal(tab);
+    el.rankModal.classList.remove('hidden');
   }
 
   el.startGameBtn.addEventListener('click', () => {
@@ -956,6 +1180,21 @@
   el.startDailyBtn.addEventListener('click', () => {
     sfx.select();
     startDailyChallenge();
+  });
+  el.startRankBtn.addEventListener('click', () => {
+    sfx.select();
+    openRankModal('ladder');
+  });
+  el.rankBtn.addEventListener('click', () => {
+    sfx.select();
+    openRankModal('ladder');
+  });
+  el.closeRankModalBtn.addEventListener('click', () => el.rankModal.classList.add('hidden'));
+  el.rankModal.addEventListener('click', (e) => {
+    if (e.target === el.rankModal) el.rankModal.classList.add('hidden');
+  });
+  [el.tabLadderBtn, el.tabRecordsBtn, el.tabAchBtn].forEach((btn) => {
+    btn.addEventListener('click', () => renderRankModal(btn.dataset.tab));
   });
   el.homeBtn.addEventListener('click', showStartScreen);
 
