@@ -58,6 +58,10 @@
     hudStarTarget: document.getElementById('hudStarTarget'),
     hudTimer: document.getElementById('hudTimer'),
     hudBestRecord: document.getElementById('hudBestRecord'),
+    rushOrderBar: document.getElementById('rushOrderBar'),
+    rushOrderTarget: document.getElementById('rushOrderTarget'),
+    rushOrderMoves: document.getElementById('rushOrderMoves'),
+    rushOrderReward: document.getElementById('rushOrderReward'),
     levelTip: document.getElementById('levelTip'),
     toastSlot: document.getElementById('toastSlot'),
     shelvesGrid: document.getElementById('shelvesGrid'),
@@ -381,6 +385,7 @@
     if (options.isMatch) node.classList.add('item-tile--match');
     if (options.isLanded) node.classList.add('item-tile--landed');
     if (options.isHintSrc) node.classList.add('item-tile--hint-src');
+    if (options.isRush) node.classList.add('item-tile--rush');
 
     node.style.setProperty('--item-bg', item.bg);
     node.style.setProperty('--item-border', item.border);
@@ -523,7 +528,8 @@
       const isHintSrc = Boolean(
         activeHint && activeHint.srcShelfId === shelf.id && activeHint.itemIndex === idx
       );
-      const tile = createItemNode(id, { isSelected, isMatch, isLanded, isHintSrc });
+      const isRush = Boolean(state.rushOrder && state.rushOrder.itemId === id);
+      const tile = createItemNode(id, { isSelected, isMatch, isLanded, isHintSrc, isRush });
       tile.addEventListener('click', (e) => {
         e.stopPropagation();
         handleItemClick(shelf.id, idx);
@@ -621,6 +627,17 @@
       rec && rec.bestMoves
         ? `${rec.bestMoves}步/${rec.bestTimeSec}s${rec.crown ? '👑' : ''}`
         : '未通关';
+    if (el.rushOrderBar) {
+      const rush = state.status === 'playing' ? state.rushOrder : null;
+      const rushItem = rush && ITEMS[rush.itemId];
+      el.rushOrderBar.classList.toggle('hidden', !rushItem);
+      if (rushItem) {
+        el.rushOrderBar.classList.toggle('rush-order-bar--urgent', rush.movesLeft <= 1);
+        el.rushOrderTarget.textContent = `${rushItem.emoji} ${rushItem.name}`;
+        el.rushOrderMoves.textContent = `剩 ${rush.movesLeft} 步`;
+        el.rushOrderReward.textContent = `+${rush.reward}💰`;
+      }
+    }
     el.levelTip.textContent = level.tip;
 
     el.shelvesGrid.innerHTML = '';
@@ -700,13 +717,14 @@
         void el.appShell.offsetWidth;
         el.appShell.classList.add('app-shell--bump');
       }
+      const rushSuffix = res.rushCompleted ? ` (含🛵急单+${res.rushCompleted.reward}💰)` : '';
       const msg =
         res.packed.combo >= 3
-          ? `⚡ 狂热连击 ×${res.packed.combo}！打包 +${res.packed.coinsEarned} 💰`
+          ? `⚡ 狂热连击 ×${res.packed.combo}！打包 +${res.packed.coinsEarned} 💰${rushSuffix}`
           : res.packed.combo > 1
-            ? `🔥 连击 ×${res.packed.combo}！打包成功 +${res.packed.coinsEarned} 💰`
-            : `✨ 打包成功！+${res.packed.coinsEarned} 💰`;
-      showToast(msg, res.packed.combo > 1);
+            ? `🔥 连击 ×${res.packed.combo}！打包成功 +${res.packed.coinsEarned} 💰${rushSuffix}`
+            : `✨ 打包成功！+${res.packed.coinsEarned} 💰${rushSuffix}`;
+      showToast(msg, res.packed.combo > 1 || Boolean(res.rushCompleted));
     } else {
       sfx.place();
       vibrate(8);

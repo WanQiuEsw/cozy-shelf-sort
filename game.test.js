@@ -364,3 +364,32 @@ test('personal best records, manager leaderboard, and achievements compute impro
   assert.equal(ach.newlyUnlocked.length, 6);
   assert.ok(ach.rewardCoins >= 300);
 });
+
+test('rush order bounty spawns after first pack, awards bonus coins when target packed, and rotates on expiry', () => {
+  const s = createGameState(1); // Level 2 starts with no rushOrder until 1st pack is cleared
+  assert.equal(s.rushOrder, null);
+
+  // Move 1: free cola from shelf-0 -> shelf-3
+  moveItem(s, 'shelf-0', 1, 'shelf-3');
+  assert.equal(s.rushOrder, null);
+
+  // Move 2: pack milk_big on shelf-0 -> 1st pack cleared! Spawns a rushOrder!
+  const firstPack = moveItem(s, 'shelf-1', 0, 'shelf-0');
+  assert.ok(firstPack.packed);
+  assert.equal(s.coins, 10);
+  assert.ok(s.rushOrder);
+  assert.equal(s.rushOrder.movesLeft, 4);
+
+  // Set rushOrder target to 'milk_big' and pack the remaining 2x milk_big (on shelf-0 and shelf-2)
+  s.rushOrder = { itemId: 'milk_big', movesLeft: 4, reward: 25 };
+  moveItem(s, 'shelf-0', 1, 'shelf-4'); // move onigiri off shelf-0 -> shelf-4 (decrements movesLeft to 3)
+  assert.equal(s.rushOrder.movesLeft, 3);
+
+  const secondPack = moveItem(s, 'shelf-2', 2, 'shelf-0'); // pack 2nd milk_big -> completes rushOrder!
+  assert.ok(secondPack.packed);
+  assert.ok(secondPack.rushCompleted);
+  assert.equal(secondPack.rushCompleted.itemId, 'milk_big');
+  assert.equal(secondPack.rushCompleted.reward, 25);
+  assert.equal(s.rushOrdersCompleted, 1);
+  assert.equal(s.coins, 10 + 15 + 25); // 10 (pack 1) + 15 (combo x2) + 25 (rush bounty)
+});

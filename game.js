@@ -9,6 +9,8 @@
   const DEFAULT_BOOSTERS = { undo: 0, expand: 0, shuffle: 0, hint: 0 };
   const BOOSTER_COSTS = { undo: 25, hint: 30, shuffle: 50, expand: 60 };
   const COMBO_GRACE_MOVES = 3;
+  const RUSH_ORDER_MOVES = 4;
+  const RUSH_ORDER_REWARD = 25;
 
   function getRowWidth(row) {
     let total = 0;
@@ -56,8 +58,41 @@
       combo: state.combo,
       maxCombo: state.maxCombo,
       comboGrace: state.comboGrace,
+      rushOrder: state.rushOrder ? { ...state.rushOrder } : null,
+      rushOrdersCompleted: state.rushOrdersCompleted || 0,
       boostersUsed: state.boostersUsed,
       status: state.status,
+    };
+  }
+
+  function pickNextRushOrder(shelves, tempTray, excludeItemId = null) {
+    const counts = {};
+    const order = [];
+    const all = tempTray ? [...shelves, tempTray] : shelves;
+    for (const s of all) {
+      if (!s || !s.layers || !s.layers[0]) continue;
+      for (const id of s.layers[0]) {
+        if (!counts[id]) {
+          counts[id] = 0;
+          order.push(id);
+        }
+        counts[id] += 1;
+      }
+    }
+    const packable = order.filter((id) => {
+      const item = ITEMS[id];
+      return item && counts[id] * item.width >= SHELF_CAPACITY;
+    });
+    const pool = packable.length > 0 ? packable : order;
+    if (pool.length === 0) return null;
+    const candidates = pool.length > 1 && excludeItemId
+      ? pool.filter((id) => id !== excludeItemId)
+      : pool;
+    candidates.sort((a, b) => counts[b] - counts[a]);
+    return {
+      itemId: candidates[0],
+      movesLeft: RUSH_ORDER_MOVES,
+      reward: RUSH_ORDER_REWARD,
     };
   }
 
@@ -107,6 +142,8 @@
       combo: 0,
       maxCombo: 0,
       comboGrace: 0,
+      rushOrder: null,
+      rushOrdersCompleted: 0,
       boostersUsed: 0,
       status: 'playing',
     };
@@ -242,9 +279,41 @@
     const won = isBoardCleared(state);
     if (won) state.status = 'won';
 
+    let rushCompleted = null;
+    if (state.rushOrder) {
+      if (packed && packed.itemId === state.rushOrder.itemId) {
+        const rushBonus = state.rushOrder.reward;
+        state.coins += rushBonus;
+        packed.coinsEarned += rushBonus;
+        packed.rushBonus = rushBonus;
+        state.rushOrdersCompleted = (state.rushOrdersCompleted || 0) + 1;
+        rushCompleted = { itemId: packed.itemId, reward: rushBonus };
+        state.rushOrder = won ? null : pickNextRushOrder(state.shelves, state.tempTray, packed.itemId);
+      } else if (won) {
+        state.rushOrder = null;
+      } else {
+        state.rushOrder.movesLeft -= 1;
+        if (state.rushOrder.movesLeft <= 0) {
+          state.rushOrder = pickNextRushOrder(state.shelves, state.tempTray, state.rushOrder.itemId);
+        }
+      }
+    } else if (!won && state.packsCleared >= 1) {
+      state.rushOrder = pickNextRushOrder(state.shelves, state.tempTray, packed ? packed.itemId : null);
+    }
+
     const deadlocked = !won && isDeadlocked(state);
 
-    return { ok: true, itemId, movedCount, packed, revealedShelfIds, unlockedShelfIds, won, deadlocked };
+    return {
+      ok: true,
+      itemId,
+      movedCount,
+      packed,
+      rushCompleted,
+      revealedShelfIds,
+      unlockedShelfIds,
+      won,
+      deadlocked,
+    };
   }
 
   function undoMove(state) {
@@ -260,6 +329,8 @@
     state.combo = prev.combo;
     state.maxCombo = prev.maxCombo || 0;
     state.comboGrace = prev.comboGrace || 0;
+    state.rushOrder = prev.rushOrder ? { ...prev.rushOrder } : null;
+    state.rushOrdersCompleted = prev.rushOrdersCompleted || 0;
     state.boostersUsed = prev.boostersUsed || 0;
     state.status = prev.status;
     return { ok: true };
@@ -575,9 +646,12 @@
     DEFAULT_BOOSTERS,
     BOOSTER_COSTS,
     COMBO_GRACE_MOVES,
+    RUSH_ORDER_MOVES,
+    RUSH_ORDER_REWARD,
     MANAGER_LADDER,
     ACHIEVEMENTS,
     createGameState,
+    pickNextRushOrder,
     getRowWidth,
     getRemainingWidth,
     isRowPacked,
