@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/version-1.1.0-2e7d32?style=flat-square" alt="Version 1.1.0">
   <img src="https://img.shields.io/badge/HTML5-CSS3-E34F26?style=flat-square&amp;logo=html5&amp;logoColor=white" alt="HTML5 &amp; CSS3">
   <img src="https://img.shields.io/badge/JavaScript-Vanilla-F7DF1E?style=flat-square&amp;logo=javascript&amp;logoColor=black" alt="Vanilla JavaScript">
-  <img src="https://img.shields.io/badge/PWA-Mobile_Ready-2b9cd8?style=flat-square" alt="PWA Mobile Ready">
+  <img src="https://img.shields.io/badge/Web_Audio-Synth-2b9cd8?style=flat-square" alt="Web Audio Synth">
   <img src="https://img.shields.io/badge/Tests-19_Passing-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="19 Tests Passing">
 </p>
 
@@ -37,28 +37,22 @@
 - **🍰 4 大主题 · 12 关主线 · 每日盲盒挑战**：内置「🧊 便利店冰柜」「🐾 萌宠猫咖架」「💄 治愈梳妆台」「🍰 甜品烘焙坊」4 套主题与 12 个梯度关卡，以及按日期种子生成的 **「📅 每日盲盒」**。
 - **💰 金币经济与阶梯临时理货台**：底部临时理货台支持逐格扩容（`+1 → +4 格`），赚取的金币可直接购买「撤回 / +1临时格 / 重排 / 提示」4 类道具，或通过 3 秒模拟激励视频免费补给。
 - **🏆 个人最佳记录（PB）与店长天梯榜**：实时显示步数、3⭐目标线与计时；自动记录每关**最少步数、最快用时与 👑 零道具金冠**，内置 9 段位店长天梯榜与 6 项成就勋章。
-- **📱 手机扫码即玩与 PWA 全屏支持**：内置「📱 手机扫码试玩」面板与 `manifest.json` PWA 配置，支持扫码畅玩并「添加到主屏幕」享受原生 App 全屏手感。
+- **🎵 零依赖纯前端实现**：所有音效均由原生 `Web Audio API` 实时振荡合成，无需外部音频资源，进度自动保存在本地 `localStorage`。
 
 ## 🚀 快速开始
 
 本项目**零第三方依赖**，无需 `npm install` 或任何构建步骤：
 
-### 1. 电脑端直接畅玩
+### 1. 启动游戏
 
-- **方式 A（最快）**：直接双击打开项目根目录下的 [`index.html`](index.html)。
+- **方式 A（直接打开）**：直接双击打开项目根目录下的 [`index.html`](index.html)。
 - **方式 B（本地 HTTP 服务）**：
   ```powershell
   python -m http.server 8080
   ```
   浏览器访问 [http://127.0.0.1:8080](http://127.0.0.1:8080)。
 
-### 2. 📱 手机端扫码试玩
-
-1. **GitHub Pages 免服永久链接（推荐）**：在 GitHub 仓库 `Settings → Pages` 中选择 `main` 分支发布，即可通过 HTTPS 链接或游戏内 **「📱 手机扫码试玩」** 二维码随时扫码畅玩。
-2. **同 Wi-Fi 局域网直连**：电脑启动 `python -m http.server 8080` 后，点开游戏右上角 **「📱」** 按钮，将输入框中的 `localhost` 替换为电脑局域网 IP（如 `http://192.168.1.x:8080`），二维码会实时更新，手机扫码即玩。
-3. **PWA 原生全屏**：手机浏览器打开后点击 **「添加到主屏幕」**，即可隐去浏览器地址栏全屏运行。
-
-### 3. 操作速查
+### 2. 操作速查
 
 | 操作 | 说明 |
 | --- | --- |
@@ -72,8 +66,7 @@
 ```text
 cozy-shelf-sort/
 ├── assets/icons/      # 游戏主图标与备选主题概念图标
-├── index.html         # 游戏主页面（开始界面、局内 HUD、货架舞台与 5 大弹窗）
-├── manifest.json      # PWA 移动端全屏安装配置
+├── index.html         # 游戏主页面（开始界面、局内 HUD、货架舞台与 4 大弹窗）
 ├── styles.css         # 全局样式表（4 套主题 CSS 变量、立体货架卡片与动效）
 ├── levels.js          # 4 大主题、26 种商品字典、12 关主线与每日盲盒生成器
 ├── game.js            # 纯函数核心状态机（移动、急单、磁铁、QTE、死锁、提示与天梯）

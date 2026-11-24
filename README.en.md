@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/version-1.1.0-2e7d32?style=flat-square" alt="Version 1.1.0">
   <img src="https://img.shields.io/badge/HTML5-CSS3-E34F26?style=flat-square&amp;logo=html5&amp;logoColor=white" alt="HTML5 &amp; CSS3">
   <img src="https://img.shields.io/badge/JavaScript-Vanilla-F7DF1E?style=flat-square&amp;logo=javascript&amp;logoColor=black" alt="Vanilla JavaScript">
-  <img src="https://img.shields.io/badge/PWA-Mobile_Ready-2b9cd8?style=flat-square" alt="PWA Mobile Ready">
+  <img src="https://img.shields.io/badge/Web_Audio-Synth-2b9cd8?style=flat-square" alt="Web Audio Synth">
   <img src="https://img.shields.io/badge/Tests-19_Passing-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="19 Tests Passing">
 </p>
 
@@ -37,16 +37,16 @@ Move and group items across multi-depth shelves: matching **4 slots of identical
 - **🍰 4 Cozy Themes · 12 Campaign Levels · Daily Seed Challenge**: Features *Convenience Store Fridge*, *Cat Cafe Shelf*, *Healing Vanity*, and *Sweet Bakery* themes, plus a deterministic **Daily Mystery Challenge** (`FNV-1a` + `LCG` PRNG).
 - **💰 In-Game Coin Economy & Expandable Temp Tray**: Earn coins to expand the temporary tray (`+1` to `+4` slots) or buy Undo, Expand, Shuffle, and Smart Hint boosters.
 - **🏆 Personal Best (PB) Records, Manager Ladder & Achievements**: Tracks best moves, fastest clear time, 3-star ratings, and **👑 No-Booster Gold Crowns** locally via `localStorage`.
-- **📱 Mobile QR Play & PWA Standalone Support**: Includes a built-in QR code sharing modal and `manifest.json` so players can scan to play via GitHub Pages or local Wi-Fi and install to their mobile home screen.
+- **🎵 Zero-Dependency Web Audio Synth**: All sound effects are synthesized in real time using the native browser `Web Audio API`.
 
 ## 🚀 Quick Start
 
 1. **Direct Open**: Double-click [`index.html`](index.html) in any modern browser.
-2. **Local Static Server (Desktop & Local Wi-Fi Mobile Play)**:
+2. **Local Static Server**:
    ```powershell
    python -m http.server 8080
    ```
-   Open [http://127.0.0.1:8080](http://127.0.0.1:8080), or click the **📱** button in-game and replace `localhost` with your LAN IP (e.g. `http://192.168.1.x:8080`) to scan and play on your phone.
+   Then open [http://127.0.0.1:8080](http://127.0.0.1:8080).
 3. **Run Automated Tests (Node.js 18+)**:
    ```powershell
    node --test game.test.js

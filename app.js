@@ -44,8 +44,6 @@
     startLevelBtn: document.getElementById('startLevelBtn'),
     startDailyBtn: document.getElementById('startDailyBtn'),
     startRankBtn: document.getElementById('startRankBtn'),
-    startMobileBtn: document.getElementById('startMobileBtn'),
-    mobileBtn: document.getElementById('mobileBtn'),
     rankBtn: document.getElementById('rankBtn'),
     homeBtn: document.getElementById('homeBtn'),
     levelSwitchBtn: document.getElementById('levelSwitchBtn'),
@@ -110,11 +108,6 @@
     adTimerText: document.getElementById('adTimerText'),
     adProgressBar: document.getElementById('adProgressBar'),
     cancelAdBtn: document.getElementById('cancelAdBtn'),
-    mobileModal: document.getElementById('mobileModal'),
-    closeMobileModalBtn: document.getElementById('closeMobileModalBtn'),
-    mobileQrImg: document.getElementById('mobileQrImg'),
-    mobileUrlInput: document.getElementById('mobileUrlInput'),
-    copyMobileUrlBtn: document.getElementById('copyMobileUrlBtn'),
   };
 
   function sanitizeBoosters(raw) {
@@ -1328,31 +1321,6 @@
     el.rankModal.classList.remove('hidden');
   }
 
-  const DEFAULT_PUBLIC_URL = 'https://wanqiuesw.github.io/cozy-shelf-sort/';
-
-  function getDefaultShareUrl() {
-    const href = window.location.href || '';
-    if (href.startsWith('http://') || href.startsWith('https://')) {
-      return href;
-    }
-    return DEFAULT_PUBLIC_URL;
-  }
-
-  function updateMobileQr(urlText) {
-    const cleanUrl = (urlText || '').trim() || DEFAULT_PUBLIC_URL;
-    if (el.mobileQrImg) {
-      el.mobileQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(cleanUrl)}`;
-    }
-  }
-
-  function openMobileModal() {
-    if (!el.mobileModal) return;
-    const shareUrl = (el.mobileUrlInput && el.mobileUrlInput.value.trim()) || getDefaultShareUrl();
-    if (el.mobileUrlInput) el.mobileUrlInput.value = shareUrl;
-    updateMobileQr(shareUrl);
-    el.mobileModal.classList.remove('hidden');
-  }
-
   el.startGameBtn.addEventListener('click', () => {
     sfx.select();
     startLevel(save.currentLevelIndex);
@@ -1373,43 +1341,6 @@
     sfx.select();
     openRankModal('ladder');
   });
-  if (el.startMobileBtn) {
-    el.startMobileBtn.addEventListener('click', () => {
-      sfx.select();
-      openMobileModal();
-    });
-  }
-  if (el.mobileBtn) {
-    el.mobileBtn.addEventListener('click', () => {
-      sfx.select();
-      openMobileModal();
-    });
-  }
-  if (el.closeMobileModalBtn) {
-    el.closeMobileModalBtn.addEventListener('click', () => el.mobileModal.classList.add('hidden'));
-  }
-  if (el.mobileModal) {
-    el.mobileModal.addEventListener('click', (e) => {
-      if (e.target === el.mobileModal) el.mobileModal.classList.add('hidden');
-    });
-  }
-  if (el.mobileUrlInput) {
-    el.mobileUrlInput.addEventListener('input', () => updateMobileQr(el.mobileUrlInput.value));
-  }
-  if (el.copyMobileUrlBtn) {
-    el.copyMobileUrlBtn.addEventListener('click', () => {
-      const val = (el.mobileUrlInput && el.mobileUrlInput.value.trim()) || getDefaultShareUrl();
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(val).then(() => {
-          showToast('📋 已复制试玩链接，快发给朋友扫码吧！');
-        }).catch(() => {
-          showToast('📋 请长按输入框复制试玩链接');
-        });
-      } else {
-        showToast('📋 请选中输入框复制试玩链接');
-      }
-    });
-  }
   el.closeRankModalBtn.addEventListener('click', () => el.rankModal.classList.add('hidden'));
   el.rankModal.addEventListener('click', (e) => {
     if (e.target === el.rankModal) el.rankModal.classList.add('hidden');
