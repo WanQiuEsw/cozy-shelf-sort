@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>便利店理货冲冲冲 · 治愈收纳 Demo</title>
+  <meta name="theme-color" content="#2b9cd8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="理货冲冲冲">
+  <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/jpeg" href="assets/icons/icon.jpg">
   <link rel="apple-touch-icon" href="assets/icons/icon.jpg">
   <link rel="stylesheet" href="styles.css">
@@ -43,7 +48,10 @@
           <button type="button" class="btn-secondary start-sub-btn" id="startLevelBtn">📂 选择关卡</button>
           <button type="button" class="btn-secondary start-sub-btn" id="startDailyBtn">📅 每日盲盒</button>
         </div>
-        <button type="button" class="btn-secondary start-sub-btn" id="startRankBtn">🏆 店长天梯榜 · 个人记录与成就</button>
+        <div class="start-sub-row">
+          <button type="button" class="btn-secondary start-sub-btn" id="startRankBtn">🏆 店长天梯榜</button>
+          <button type="button" class="btn-secondary start-sub-btn" id="startMobileBtn">📱 手机扫码试玩</button>
+        </div>
       </div>
       <p class="start-footnote">纯单机本地存档 · 道具支持金币直购或广告免费补给</p>
     </section>
@@ -56,6 +64,7 @@
       </button>
       <div class="hud-actions">
         <div class="pill-badge" title="累计金币">💰 <span id="coinCount">0</span></div>
+        <button type="button" class="icon-btn" id="mobileBtn" aria-label="手机扫码试玩" title="手机扫码试玩">📱</button>
         <button type="button" class="icon-btn" id="rankBtn" aria-label="排行榜与记录" title="排行榜与记录">🏆</button>
         <button type="button" class="icon-btn" id="homeBtn" aria-label="返回开始界面" title="返回开始界面">🏠</button>
         <button type="button" class="icon-btn" id="soundToggleBtn" aria-label="切换音效" title="切换音效">🔊</button>
@@ -207,6 +216,29 @@
         <div class="ad-progress-fill" id="adProgressBar"></div>
       </div>
       <button type="button" class="btn-secondary" id="cancelAdBtn">放弃领取</button>
+    </div>
+  </div>
+
+  <!-- 手机扫码试玩与部署指南弹窗 -->
+  <div class="modal-backdrop hidden" id="mobileModal" role="dialog" aria-modal="true" aria-labelledby="mobileModalTitle">
+    <div class="modal-card modal-center">
+      <div class="modal-head">
+        <h2 id="mobileModalTitle">📱 手机扫码畅玩指南</h2>
+        <button type="button" class="icon-btn" id="closeMobileModalBtn" aria-label="关闭">✕</button>
+      </div>
+      <p class="modal-desc">无需购买云服务器，支持 <strong>GitHub Pages 永久链接</strong> 或 <strong>同 Wi-Fi 局域网直连</strong> 扫码即玩！</p>
+      <div class="mobile-qr-box">
+        <img id="mobileQrImg" class="mobile-qr-img" alt="手机试玩二维码" width="168" height="168">
+      </div>
+      <div class="mobile-url-row">
+        <input type="text" id="mobileUrlInput" class="mobile-url-input" aria-label="试玩链接地址">
+        <button type="button" class="btn-primary mobile-copy-btn" id="copyMobileUrlBtn">复制</button>
+      </div>
+      <div class="mobile-tips-box">
+        <div><strong>🌐 方式 1 · GitHub Pages 免服托管（推荐）</strong><br>在 GitHub 仓库 <code>Settings → Pages</code> 选择分支发布，即可获得永久 HTTPS 试玩链接。</div>
+        <div><strong>📶 方式 2 · 同 Wi-Fi 局域网秒测</strong><br>电脑运行 <code>npx serve -l 8080</code>，将上方地址中的 <code>localhost</code> 改为电脑局域网 IP（如 <code>http://192.168.1.x:8080</code>）即可扫码试玩。</div>
+        <div><strong>📲 原生全屏体验（PWA）</strong><br>手机浏览器打开后点击「添加到主屏幕」，即可获得无地址栏的原生 App 全屏手感！</div>
+      </div>
     </div>
   </div>
 

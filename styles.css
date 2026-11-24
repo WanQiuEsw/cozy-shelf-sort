@@ -1261,6 +1261,74 @@ body {
   transition: width 260ms linear;
 }
 
+.mobile-qr-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid #dbe9f6;
+  box-shadow: 0 6px 18px rgba(25, 39, 58, 0.08);
+  margin-bottom: 12px;
+}
+
+.mobile-qr-img {
+  display: block;
+  border-radius: 8px;
+}
+
+.mobile-url-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.mobile-url-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1.5px solid #dbe2ec;
+  background: #f8fafc;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.mobile-copy-btn {
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.mobile-tips-box {
+  text-align: left;
+  background: #f6f9fc;
+  border: 1.5px solid #e3ecf5;
+  border-radius: 13px;
+  padding: 10px 12px;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-tips-box strong {
+  color: var(--ink);
+}
+
+.mobile-tips-box code {
+  background: #e7f0fa;
+  color: #1864ab;
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+
 @keyframes popIn {
   from { opacity: 0; transform: scale(0.94); }
   to { opacity: 1; transform: scale(1); }
