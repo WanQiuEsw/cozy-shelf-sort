@@ -16,6 +16,7 @@
     canMoveItem,
     moveItem,
     triggerFeverMagnet,
+    claimSealBonus,
     isDeadlocked,
     undoMove,
     expandTempTray,
@@ -71,6 +72,8 @@
     tempCapBadge: document.getElementById('tempCapBadge'),
     tempTrayContainer: document.getElementById('tempTrayContainer'),
     autoCompleteBtn: document.getElementById('autoCompleteBtn'),
+    sealQteBar: document.getElementById('sealQteBar'),
+    sealQteCursor: document.getElementById('sealQteCursor'),
     deadlockBanner: document.getElementById('deadlockBanner'),
     btnUndo: document.getElementById('btnUndo'),
     badgeUndo: document.getElementById('badgeUndo'),
@@ -231,6 +234,11 @@
   let clockTimer = null;
   let elapsedSec = 0;
   let activeRankTab = 'ladder';
+  let qteFrame = null;
+  let qteTimeout = null;
+  let qteCursorPct = 50;
+  let qteDir = 1;
+  let qteActive = false;
   let animFlags = {
     shakeShelfId: null,
     packedShelfId: null,
@@ -254,6 +262,65 @@
   function clearHint() {
     activeHint = null;
     clearTimeout(hintTimer);
+  }
+
+  function closeSealQte() {
+    qteActive = false;
+    cancelAnimationFrame(qteFrame);
+    clearTimeout(qteTimeout);
+    if (el.sealQteBar) el.sealQteBar.classList.add('hidden');
+  }
+
+  function startSealQte() {
+    if (!el.sealQteBar || !el.sealQteCursor || state.status !== 'playing') return;
+    closeSealQte();
+    qteActive = true;
+    qteCursorPct = 10;
+    qteDir = 1;
+    el.sealQteCursor.style.left = `${qteCursorPct}%`;
+    el.sealQteBar.classList.remove('hidden');
+
+    let lastTs = performance.now();
+    const tick = (now) => {
+      if (!qteActive) return;
+      const dt = Math.min(50, now - lastTs);
+      lastTs = now;
+      qteCursorPct += qteDir * dt * 0.14;
+      if (qteCursorPct >= 96) {
+        qteCursorPct = 96;
+        qteDir = -1;
+      } else if (qteCursorPct <= 4) {
+        qteCursorPct = 4;
+        qteDir = 1;
+      }
+      el.sealQteCursor.style.left = `${qteCursorPct}%`;
+      qteFrame = requestAnimationFrame(tick);
+    };
+    qteFrame = requestAnimationFrame(tick);
+    qteTimeout = setTimeout(() => {
+      closeSealQte();
+    }, 2400);
+  }
+
+  function handleSealQteHit() {
+    if (!qteActive || state.status !== 'playing') return;
+    const hitPct = qteCursorPct;
+    closeSealQte();
+    const res = claimSealBonus(state, hitPct);
+    save.coins += res.bonusCoins;
+    persistSave();
+    if (res.isPerfect) {
+      sfx.reward();
+      vibrate([20, 30, 40]);
+      el.appShell.classList.remove('app-shell--bump');
+      void el.appShell.offsetWidth;
+      el.appShell.classList.add('app-shell--bump');
+    } else {
+      sfx.select();
+      vibrate(15);
+    }
+    showToast(`${res.label} 额外赏金 +${res.bonusCoins}💰`, res.isPerfect);
+    render();
   }
 
   function applyTheme(themeKey) {
@@ -344,6 +411,7 @@
     state = createGameState(save.currentLevelIndex, save.boosters, customLevel);
     selected = null;
     clearHint();
+    closeSealQte();
     animFlags = {
       shakeShelfId: null,
       packedShelfId: null,
@@ -732,6 +800,7 @@
             ? `🔥 连击 ×${res.packed.combo}！打包成功 +${res.packed.coinsEarned} 💰${rushSuffix}`
             : `✨ 打包成功！+${res.packed.coinsEarned} 💰${rushSuffix}`;
       showToast(msg, res.packed.combo > 1 || Boolean(res.rushCompleted));
+      if (!res.won) startSealQte();
     } else {
       sfx.place();
       vibrate(8);
@@ -1316,6 +1385,18 @@
   el.autoCompleteBtn.addEventListener('click', runAutoComplete);
   if (el.feverMagnetBtn) {
     el.feverMagnetBtn.addEventListener('click', handleFeverMagnetClick);
+  }
+  if (el.sealQteBar) {
+    el.sealQteBar.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      handleSealQteHit();
+    });
+    el.sealQteBar.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleSealQteHit();
+      }
+    });
   }
 
   [el.btnUndo, el.btnExpand, el.btnShuffle, el.btnHint].forEach((btn) => {

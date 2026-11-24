@@ -12,6 +12,8 @@ const {
   canMoveItem,
   moveItem,
   triggerFeverMagnet,
+  evaluateSealTiming,
+  claimSealBonus,
   isDeadlocked,
   undoMove,
   expandTempTray,
@@ -423,4 +425,23 @@ test('3-combo fever charges magnet burst and triggerFeverMagnet clears a full pa
   undoMove(s);
   assert.equal(s.feverMagnetReady, true);
   assert.equal(s.packsCleared, packsBefore);
+});
+
+test('QTE seal timing awards 25 coins on perfect center hit and 10 coins on normal hit', () => {
+  const s = createGameState(0);
+  const perfect = claimSealBonus(s, 50);
+  assert.equal(perfect.isPerfect, true);
+  assert.equal(perfect.grade, 'perfect');
+  assert.equal(perfect.bonusCoins, 25);
+  assert.equal(s.coins, 25);
+  assert.equal(s.perfectSeals, 1);
+
+  const normal = claimSealBonus(s, 15);
+  assert.equal(normal.isPerfect, false);
+  assert.equal(normal.grade, 'good');
+  assert.equal(normal.bonusCoins, 10);
+  assert.equal(s.coins, 35);
+  assert.equal(s.perfectSeals, 1);
+  assert.equal(evaluateSealTiming(65).isPerfect, true);
+  assert.equal(evaluateSealTiming(66).isPerfect, false);
 });
