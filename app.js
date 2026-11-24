@@ -15,6 +15,7 @@
     findShelf,
     canMoveItem,
     moveItem,
+    triggerFeverMagnet,
     isDeadlocked,
     undoMove,
     expandTempTray,
@@ -62,6 +63,7 @@
     rushOrderTarget: document.getElementById('rushOrderTarget'),
     rushOrderMoves: document.getElementById('rushOrderMoves'),
     rushOrderReward: document.getElementById('rushOrderReward'),
+    feverMagnetBtn: document.getElementById('feverMagnetBtn'),
     levelTip: document.getElementById('levelTip'),
     toastSlot: document.getElementById('toastSlot'),
     shelvesGrid: document.getElementById('shelvesGrid'),
@@ -638,6 +640,11 @@
         el.rushOrderReward.textContent = `+${rush.reward}💰`;
       }
     }
+    const magnetReady = state.status === 'playing' && Boolean(state.feverMagnetReady);
+    if (el.feverMagnetBtn) {
+      el.feverMagnetBtn.classList.toggle('hidden', !magnetReady);
+    }
+    el.appShell.classList.toggle('app-shell--fever', magnetReady);
     el.levelTip.textContent = level.tip;
 
     el.shelvesGrid.innerHTML = '';
@@ -840,6 +847,64 @@
     });
 
     performMove(shelfId, itemIndex, candidates[0].id, true);
+  }
+
+  function handleFeverMagnetClick() {
+    if (state.status !== 'playing' || !state.feverMagnetReady) return;
+    clearHint();
+    selected = null;
+    const res = triggerFeverMagnet(state);
+    if (!res.ok) return;
+
+    const item = ITEMS[res.itemId];
+    save.coins += res.packed.coinsEarned;
+    persistSave();
+    sfx.pack(res.packed.combo);
+    vibrate([25, 35, 45]);
+    el.appShell.classList.remove('app-shell--bump');
+    void el.appShell.offsetWidth;
+    el.appShell.classList.add('app-shell--bump');
+
+    animFlags = {
+      shakeShelfId: null,
+      packedShelfId: res.packed.shelfId,
+      packBurst: {
+        shelfId: res.packed.shelfId,
+        coinsEarned: res.packed.coinsEarned,
+        combo: res.packed.combo,
+      },
+      landed: null,
+      revealedIds: new Set(res.revealedShelfIds),
+    };
+
+    const rushSuffix = res.rushCompleted ? ` (含🛵急单+${res.rushCompleted.reward}💰)` : '';
+    showToast(
+      `🧲 狂热磁铁吸箱！「${item ? item.name : ''}」零步清场 +${res.packed.coinsEarned}💰${rushSuffix}`,
+      true
+    );
+
+    render();
+    setTimeout(() => {
+      animFlags = {
+        shakeShelfId: null,
+        packedShelfId: null,
+        packBurst: null,
+        landed: null,
+        revealedIds: new Set(),
+      };
+    }, 620);
+
+    if (res.won) {
+      save.unlockedLevelIndex = Math.max(
+        save.unlockedLevelIndex,
+        Math.min(state.levelIndex + 1, LEVELS.length - 1)
+      );
+      persistSave();
+      setTimeout(() => {
+        sfx.win();
+        openWinModal();
+      }, 360);
+    }
   }
 
   function runAutoComplete() {
@@ -1249,6 +1314,9 @@
   });
 
   el.autoCompleteBtn.addEventListener('click', runAutoComplete);
+  if (el.feverMagnetBtn) {
+    el.feverMagnetBtn.addEventListener('click', handleFeverMagnetClick);
+  }
 
   [el.btnUndo, el.btnExpand, el.btnShuffle, el.btnHint].forEach((btn) => {
     btn.addEventListener('click', () => handleBoosterClick(btn.dataset.booster));

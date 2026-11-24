@@ -58,6 +58,7 @@
       combo: state.combo,
       maxCombo: state.maxCombo,
       comboGrace: state.comboGrace,
+      feverMagnetReady: Boolean(state.feverMagnetReady),
       rushOrder: state.rushOrder ? { ...state.rushOrder } : null,
       rushOrdersCompleted: state.rushOrdersCompleted || 0,
       boostersUsed: state.boostersUsed,
@@ -142,6 +143,7 @@
       combo: 0,
       maxCombo: 0,
       comboGrace: 0,
+      feverMagnetReady: false,
       rushOrder: null,
       rushOrdersCompleted: 0,
       boostersUsed: 0,
@@ -262,6 +264,7 @@
       state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
       state.comboGrace = COMBO_GRACE_MOVES;
       const isFever = state.combo >= 3;
+      if (isFever) state.feverMagnetReady = true;
       const coinsEarned = 10 + Math.max(0, state.combo - 1) * 5 + (isFever ? 5 : 0);
       state.coins += coinsEarned;
       packed = { shelfId: dst.id, itemId: packedItemId, coinsEarned, combo: state.combo, isFever };
@@ -329,11 +332,174 @@
     state.combo = prev.combo;
     state.maxCombo = prev.maxCombo || 0;
     state.comboGrace = prev.comboGrace || 0;
+    state.feverMagnetReady = Boolean(prev.feverMagnetReady);
     state.rushOrder = prev.rushOrder ? { ...prev.rushOrder } : null;
     state.rushOrdersCompleted = prev.rushOrdersCompleted || 0;
     state.boostersUsed = prev.boostersUsed || 0;
     state.status = prev.status;
     return { ok: true };
+  }
+
+  function findBestMagnetTarget(state) {
+    if (!state || state.status !== 'playing') return null;
+    const all = getAllShelves(state).filter((s) => !isShelfLocked(state, s));
+    const frontCounts = {};
+    const totalCounts = {};
+
+    for (const s of state.shelves) {
+      for (let lIdx = 0; lIdx < s.layers.length; lIdx += 1) {
+        for (const id of s.layers[lIdx]) {
+          totalCounts[id] = (totalCounts[id] || 0) + 1;
+          if (lIdx === 0 && !isShelfLocked(state, s)) {
+            frontCounts[id] = (frontCounts[id] || 0) + 1;
+          }
+        }
+      }
+    }
+    if (state.tempTray && state.tempTray.capacity > 0) {
+      for (const id of state.tempTray.layers[0]) {
+        totalCounts[id] = (totalCounts[id] || 0) + 1;
+        frontCounts[id] = (frontCounts[id] || 0) + 1;
+      }
+    }
+
+    const candidates = Object.keys(totalCounts).filter((id) => {
+      const item = ITEMS[id];
+      return item && totalCounts[id] >= SHELF_CAPACITY / item.width;
+    });
+    if (candidates.length === 0) return null;
+
+    const rushId = state.rushOrder && state.rushOrder.itemId;
+    candidates.sort((a, b) => {
+      const aIsRush = a === rushId ? 1 : 0;
+      const bIsRush = b === rushId ? 1 : 0;
+      if (aIsRush !== bIsRush) return bIsRush - aIsRush;
+      return (frontCounts[b] || 0) - (frontCounts[a] || 0);
+    });
+
+    const targetId = candidates[0];
+    let bestShelf = all[0] || state.shelves[0];
+    let bestHits = -1;
+    for (const s of all) {
+      if (s.isTemp) continue;
+      const hits = s.layers[0].filter((id) => id === targetId).length;
+      if (hits > bestHits) {
+        bestHits = hits;
+        bestShelf = s;
+      }
+    }
+    return { itemId: targetId, shelfId: bestShelf ? bestShelf.id : 'shelf-0' };
+  }
+
+  function triggerFeverMagnet(state) {
+    if (!state || state.status !== 'playing' || !state.feverMagnetReady) {
+      return { ok: false, reason: 'not_ready' };
+    }
+    const target = findBestMagnetTarget(state);
+    if (!target) {
+      return { ok: false, reason: 'no_target' };
+    }
+
+    state.history.push(snapshot(state));
+    state.feverMagnetReady = false;
+
+    const item = ITEMS[target.itemId];
+    let needed = SHELF_CAPACITY / item.width;
+    const affectedShelves = new Set();
+
+    // 1. Pull matching items from unlocked front rows & tempTray first
+    for (const s of getAllShelves(state)) {
+      if (isShelfLocked(state, s)) continue;
+      for (let i = 0; i < s.layers[0].length && needed > 0; ) {
+        if (s.layers[0][i] === target.itemId) {
+          s.layers[0].splice(i, 1);
+          needed -= 1;
+          affectedShelves.add(s);
+        } else {
+          i += 1;
+        }
+      }
+    }
+
+    // 2. Pull remaining matching items from back layers or locked shelves if needed
+    for (const s of state.shelves) {
+      for (let lIdx = 0; lIdx < s.layers.length && needed > 0; lIdx += 1) {
+        const layer = s.layers[lIdx];
+        for (let i = 0; i < layer.length && needed > 0; ) {
+          if (layer[i] === target.itemId) {
+            layer.splice(i, 1);
+            needed -= 1;
+            affectedShelves.add(s);
+          } else {
+            i += 1;
+          }
+        }
+      }
+    }
+
+    // Clean up any empty back layers or slide forward
+    const revealedShelfIds = [];
+    for (const s of affectedShelves) {
+      if (!s.isTemp) {
+        for (let lIdx = s.layers.length - 1; lIdx >= 1; lIdx -= 1) {
+          if (s.layers[lIdx].length === 0) s.layers.splice(lIdx, 1);
+        }
+        if (slideIfEmpty(s)) revealedShelfIds.push(s.id);
+      }
+    }
+
+    const prevPacks = state.packsCleared;
+    state.packsCleared += 1;
+    const unlockedShelfIds = [];
+    for (const s of state.shelves) {
+      if ((s.unlockAtPacks || 0) > prevPacks && (s.unlockAtPacks || 0) <= state.packsCleared) {
+        unlockedShelfIds.push(s.id);
+      }
+    }
+
+    state.combo += 1;
+    state.maxCombo = Math.max(state.maxCombo || 0, state.combo);
+    state.comboGrace = COMBO_GRACE_MOVES;
+    const coinsEarned = 15 + Math.max(0, state.combo - 1) * 5;
+    state.coins += coinsEarned;
+
+    const packed = {
+      shelfId: target.shelfId,
+      itemId: target.itemId,
+      coinsEarned,
+      combo: state.combo,
+      isFever: true,
+      isMagnet: true,
+    };
+
+    const won = isBoardCleared(state);
+    if (won) state.status = 'won';
+
+    let rushCompleted = null;
+    if (state.rushOrder && state.rushOrder.itemId === target.itemId) {
+      const rushBonus = state.rushOrder.reward;
+      state.coins += rushBonus;
+      packed.coinsEarned += rushBonus;
+      packed.rushBonus = rushBonus;
+      state.rushOrdersCompleted = (state.rushOrdersCompleted || 0) + 1;
+      rushCompleted = { itemId: target.itemId, reward: rushBonus };
+      state.rushOrder = won ? null : pickNextRushOrder(state.shelves, state.tempTray, target.itemId);
+    } else if (won) {
+      state.rushOrder = null;
+    }
+
+    const deadlocked = !won && isDeadlocked(state);
+
+    return {
+      ok: true,
+      itemId: target.itemId,
+      packed,
+      rushCompleted,
+      revealedShelfIds,
+      unlockedShelfIds,
+      won,
+      deadlocked,
+    };
   }
 
   function expandTempTray(state) {
@@ -660,6 +826,7 @@
     findShelf,
     canMoveItem,
     moveItem,
+    triggerFeverMagnet,
     isDeadlocked,
     undoMove,
     expandTempTray,

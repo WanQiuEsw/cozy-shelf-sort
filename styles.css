@@ -417,6 +417,26 @@ body {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
 }
 
+.fever-magnet-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1.5px solid #f06595;
+  background: linear-gradient(135deg, #f03e3e 0%, #ae3ec9 100%);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(174, 62, 201, 0.35);
+  animation: hintPulse 0.55s infinite alternate;
+}
+
+.app-shell--fever {
+  box-shadow: 0 22px 50px rgba(174, 62, 201, 0.35), inset 0 0 0 2.5px rgba(240, 62, 62, 0.55);
+}
+
 .level-tip {
   margin: 6px 0 0;
   font-size: 11.5px;

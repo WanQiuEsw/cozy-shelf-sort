@@ -11,6 +11,7 @@ const {
   isShelfLocked,
   canMoveItem,
   moveItem,
+  triggerFeverMagnet,
   isDeadlocked,
   undoMove,
   expandTempTray,
@@ -392,4 +393,34 @@ test('rush order bounty spawns after first pack, awards bonus coins when target 
   assert.equal(secondPack.rushCompleted.reward, 25);
   assert.equal(s.rushOrdersCompleted, 1);
   assert.equal(s.coins, 10 + 15 + 25); // 10 (pack 1) + 15 (combo x2) + 25 (rush bounty)
+});
+
+test('3-combo fever charges magnet burst and triggerFeverMagnet clears a full pack in 0 moves', () => {
+  const s = createGameState(1); // Level 2 (4 packs total)
+  assert.equal(s.feverMagnetReady, false);
+  assert.equal(triggerFeverMagnet(s).ok, false);
+
+  // Reach combo 3 to charge feverMagnetReady
+  s.combo = 2;
+  s.comboGrace = 3;
+  moveItem(s, 'shelf-0', 1, 'shelf-3'); // move cola -> s3 (combo still 2, grace 2)
+  const pack3 = moveItem(s, 'shelf-1', 0, 'shelf-0'); // pack milk_big -> combo 3 => feverMagnetReady!
+  assert.ok(pack3.packed);
+  assert.equal(s.combo, 3);
+  assert.equal(s.feverMagnetReady, true);
+
+  const movesBefore = s.moves;
+  const packsBefore = s.packsCleared;
+  const magRes = triggerFeverMagnet(s);
+  assert.equal(magRes.ok, true);
+  assert.ok(magRes.packed && magRes.packed.isMagnet);
+  assert.equal(s.feverMagnetReady, false);
+  assert.equal(s.moves, movesBefore); // 0 moves consumed!
+  assert.equal(s.packsCleared, packsBefore + 1);
+  assert.equal(s.combo, 4);
+
+  // Undo restores feverMagnetReady and pack count
+  undoMove(s);
+  assert.equal(s.feverMagnetReady, true);
+  assert.equal(s.packsCleared, packsBefore);
 });
