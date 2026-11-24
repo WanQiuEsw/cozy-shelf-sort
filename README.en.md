@@ -25,12 +25,16 @@ Move and group items across multi-depth shelves: matching **4 slots of identical
 
 ## Key Features
 
+- **🎯 Three High-Octane Frisson Hooks (Rush Orders + Fever Magnet + QTE Seal Crit)**:
+  - **🛵 Rush Order Bounties**: Dynamic 4-move delivery orders award `+25💰` bonus coins when the requested item is packed in time.
+  - **🧲 3-Combo Fever Magnet Burst**: Reaching a `×3` Fever streak charges a one-tap Magnet that pulls and clears an entire matching pack across all shelves in **0 moves**.
+  - **🎯 QTE Tape-Seal Crit**: After each pack, tap the oscillating tape cursor inside the golden center zone for a `CRIT! Perfect Seal` (`+25💰`).
 - **⚡ Batch Chain Moves & Instant Auto-Pack**: Moving an item into a matching shelf (or double-clicking an item) automatically pulls sibling items along; clearing all hidden back rows unlocks a one-tap **Auto-Complete** button.
 - **📦 2-Slot Wide Items, Mystery Rows & Locked Shelves**: Combines 1-slot and 2-slot items with hidden back rows (`mysteryBack`) and pack-gated shelf locks (`lockedShelves`).
 - **🍰 4 Cozy Themes · 12 Campaign Levels · Daily Seed Challenge**: Features *Convenience Store Fridge*, *Cat Cafe Shelf*, *Healing Vanity*, and *Sweet Bakery* themes, plus a deterministic **Daily Mystery Challenge** (`FNV-1a` + `LCG` PRNG).
 - **💰 In-Game Coin Economy & Expandable Temp Tray**: Earn coins with combo multipliers to expand the temporary tray (`+1` to `+4` slots) or buy Undo, Expand, Shuffle, and Smart Hint boosters.
 - **🏆 Personal Best (PB) Records, Manager Ladder & Achievements**: Tracks best moves, fastest clear time, 3-star ratings, and **👑 No-Booster Gold Crowns** locally via `localStorage`.
-- **🎵 Zero-Dependency Web Audio Synth**: All sound effects are synthesized in real time using the native browser `Web Audio API`.
+- **📱 Mobile QR Play & PWA Standalone Support**: Includes a built-in QR code sharing modal and `manifest.json` so players can scan to play via GitHub Pages or local Wi-Fi and install to their mobile home screen.
 
 ## Quick Start
 
