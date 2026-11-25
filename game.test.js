@@ -22,6 +22,7 @@ const {
   expandTempTray,
   shuffleFrontRows,
   findBestHint,
+  solveLevel,
   canAutoComplete,
   validateLevel,
   getThreeStarMoves,
@@ -31,7 +32,7 @@ const {
   evaluateAchievements,
 } = require('./game.js');
 
-test('all 16 levels (including 8-shelf and 10-shelf stages) pass structural validation and start playable across 4 themes', () => {
+test('all 16 levels (including 8-shelf and 10-shelf stages) pass structural validation and are 100% solvable in both Standard and Hardcore modes', () => {
   assert.equal(LEVELS.length, 16);
   assert.equal(LEVELS[11].shelves.length, 8);
   assert.equal(LEVELS[15].shelves.length, 10);
@@ -39,8 +40,24 @@ test('all 16 levels (including 8-shelf and 10-shelf stages) pass structural vali
   for (let i = 0; i < LEVELS.length; i += 1) {
     const result = validateLevel(LEVELS[i]);
     assert.equal(result.valid, true, `Level ${i + 1} errors: ${result.errors.join('; ')}`);
-    const state = createGameState(i);
-    assert.equal(isDeadlocked(state), false, `Level ${i + 1} starts deadlocked`);
+
+    const stdState = createGameState(i, null, null, { hardcoreMode: false });
+    assert.equal(isDeadlocked(stdState), false, `Level ${i + 1} starts deadlocked in Standard mode`);
+    const stdSolved = solveLevel(stdState);
+    assert.equal(
+      stdSolved.solvable,
+      true,
+      `Level ${i + 1} failed to solve in Standard mode (${stdSolved.packsCleared}/${stdSolved.totalPacks} packs)`
+    );
+
+    const hcState = createGameState(i, null, null, { hardcoreMode: true });
+    assert.equal(isDeadlocked(hcState), false, `Level ${i + 1} starts deadlocked in Hardcore mode`);
+    const hcSolved = solveLevel(hcState);
+    assert.equal(
+      hcSolved.solvable,
+      true,
+      `Level ${i + 1} failed to solve in Hardcore mode (${hcSolved.packsCleared}/${hcSolved.totalPacks} packs)`
+    );
   }
 });
 
@@ -464,7 +481,7 @@ test('Direction 1 (LIFO chute shelves) blocks inner items and Direction 2 (stric
   // Global Hardcore Mode toggle turns all shelves into Chute + Strict
   assert.equal(toggleHardcoreMode(s, true), true);
   assert.equal(isShelfChute(s, s.shelves[2]), true);
-  assert.equal(isShelfStrict(s, s.shelves[2]), true);
+  assert.equal(isShelfStrict(s, s.shelves[3]), true);
   assert.equal(isItemAccessible(s, s.shelves[2], 0), false);
   assert.equal(toggleHardcoreMode(s, false), false);
   assert.equal(isShelfChute(s, s.shelves[2]), false);

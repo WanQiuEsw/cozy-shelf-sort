@@ -464,31 +464,35 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 6px 12px 10px;
+  padding: 12px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   position: relative;
 }
 
 .toast-slot {
-  position: sticky;
-  top: 2px;
-  z-index: 20;
   min-height: 0;
   display: flex;
   justify-content: center;
   pointer-events: none;
 }
 
+.toast-slot:not(:empty) {
+  margin-top: 6px;
+}
+
 .toast-pill {
-  background: rgba(34, 34, 42, 0.88);
+  background: rgba(34, 34, 42, 0.92);
   color: #fff;
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  max-width: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
   animation: popIn 180ms ease;
 }
 
@@ -499,7 +503,7 @@ body {
 .shelves-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 14px 10px;
 }
 
 .shelf-card {
@@ -715,9 +719,16 @@ body {
 }
 
 .item-tile--blocked {
-  opacity: 0.56;
-  filter: saturate(0.65);
+  opacity: 1;
+  background: linear-gradient(180deg, #f1f3f5 0%, #e9ecef 100%);
+  border-color: #ced4da;
   cursor: not-allowed;
+}
+
+.item-tile--blocked .item-emoji,
+.item-tile--blocked .item-name {
+  opacity: 0.58;
+  filter: grayscale(0.35);
 }
 
 .item-tile--blocked::before {
@@ -725,9 +736,9 @@ body {
   position: absolute;
   bottom: 2px;
   right: 3px;
-  font-size: 9px;
+  font-size: 9.5px;
   line-height: 1;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .shelf-stage {

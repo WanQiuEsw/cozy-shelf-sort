@@ -110,6 +110,22 @@
     return Math.round(totalWidth / SHELF_CAPACITY);
   }
 
+  function computeHardcoreFlags(level, shelfIndex, totalShelves) {
+    const lockedMap = (level && level.lockedShelves) || {};
+    if (Number(lockedMap[shelfIndex]) > 0) {
+      return { isChute: false, isStrict: false };
+    }
+    const chuteSet = new Set(Array.isArray(level && level.chuteShelves) ? level.chuteShelves : []);
+    const strictSet = new Set(Array.isArray(level && level.strictShelves) ? level.strictShelves : []);
+    const half = Math.max(1, Math.floor((totalShelves - 1) / 2));
+    // First half of shelves become LIFO Chutes; next shelves become Strict Cabinets; last 1-2 shelves remain buffer shelves so levels are 100% solvable without boosters
+    const hcChute = chuteSet.has(shelfIndex) || shelfIndex < half;
+    const hcStrict =
+      strictSet.has(shelfIndex) ||
+      (!hcChute && shelfIndex < Math.max(half + 1, totalShelves - 2));
+    return { isChute: hcChute, isStrict: hcStrict };
+  }
+
   function createGameState(levelIndex = 0, savedBoosters, customLevel = null, options = {}) {
     const idx = Math.max(0, Math.min(levelIndex, LEVELS.length - 1));
     const level = customLevel || LEVELS[idx];
@@ -117,16 +133,20 @@
     const chuteSet = new Set(Array.isArray(level && level.chuteShelves) ? level.chuteShelves : []);
     const strictSet = new Set(Array.isArray(level && level.strictShelves) ? level.strictShelves : []);
     const hardcoreMode = Boolean((options && options.hardcoreMode) || (level && level.hardcoreMode));
+    const totalShelves = level.shelves.length;
 
-    const shelves = level.shelves.map((rawLayers, i) => ({
-      id: `shelf-${i}`,
-      capacity: SHELF_CAPACITY,
-      isTemp: false,
-      isChute: hardcoreMode || chuteSet.has(i),
-      isStrict: hardcoreMode || strictSet.has(i),
-      unlockAtPacks: Number(lockedMap[i]) || 0,
-      layers: rawLayers.length ? cloneLayers(rawLayers) : [[]],
-    }));
+    const shelves = level.shelves.map((rawLayers, i) => {
+      const hc = hardcoreMode ? computeHardcoreFlags(level, i, totalShelves) : null;
+      return {
+        id: `shelf-${i}`,
+        capacity: SHELF_CAPACITY,
+        isTemp: false,
+        isChute: hardcoreMode ? hc.isChute : chuteSet.has(i),
+        isStrict: hardcoreMode ? hc.isStrict : strictSet.has(i),
+        unlockAtPacks: Number(lockedMap[i]) || 0,
+        layers: rawLayers.length ? cloneLayers(rawLayers) : [[]],
+      };
+    });
 
     return {
       levelIndex: idx,
@@ -177,11 +197,11 @@
   }
 
   function isShelfChute(state, shelf) {
-    return Boolean(shelf && !shelf.isTemp && (shelf.isChute || (state && state.hardcoreMode)));
+    return Boolean(shelf && !shelf.isTemp && shelf.isChute);
   }
 
   function isShelfStrict(state, shelf) {
-    return Boolean(shelf && !shelf.isTemp && (shelf.isStrict || (state && state.hardcoreMode)));
+    return Boolean(shelf && !shelf.isTemp && shelf.isStrict);
   }
 
   function isItemAccessible(state, shelf, itemIndex) {
@@ -555,9 +575,16 @@
     const strictSet = new Set(Array.isArray(level && level.strictShelves) ? level.strictShelves : []);
     const next = typeof enabled === 'boolean' ? enabled : !state.hardcoreMode;
     state.hardcoreMode = next;
+    const totalShelves = state.shelves.length;
     state.shelves.forEach((s, i) => {
-      s.isChute = next || chuteSet.has(i);
-      s.isStrict = next || strictSet.has(i);
+      if (next) {
+        const hc = computeHardcoreFlags(level, i, totalShelves);
+        s.isChute = hc.isChute;
+        s.isStrict = hc.isStrict;
+      } else {
+        s.isChute = chuteSet.has(i);
+        s.isStrict = strictSet.has(i);
+      }
     });
     return state.hardcoreMode;
   }
@@ -634,13 +661,38 @@
     return { ok: true };
   }
 
+  function boardSignature(shelves, tempTray) {
+    const shelfKey = shelves.map((s) => (s.layers[0] || []).join(',')).join('|');
+    const tempKey = tempTray && tempTray.layers && tempTray.layers[0] ? tempTray.layers[0].join(',') : '';
+    return `${shelfKey}||${tempKey}`;
+  }
+
   function scoreMove(state, src, itemIndex, dst) {
     const itemId = src.layers[0][itemIndex];
     const item = ITEMS[itemId];
     const srcFront = src.layers[0];
     const dstFront = dst.layers[0];
 
-    const simulatedDst = [...dstFront, itemId];
+    let moveCount = 1;
+    if (isShelfChute(state, src)) {
+      for (let k = srcFront.length - 2; k >= 0 && srcFront[k] === itemId; k -= 1) {
+        moveCount += 1;
+      }
+    } else {
+      moveCount = srcFront.filter((id) => id === itemId).length;
+    }
+    const maxFit = Math.floor(getRemainingWidth(dst) / item.width);
+    const actualMoved = Math.max(1, Math.min(moveCount, maxFit));
+    const simulatedDst = [...dstFront, ...Array(actualMoved).fill(itemId)];
+    const simulatedSrc = srcFront.slice();
+    simulatedSrc.splice(itemIndex, 1);
+    for (let c = 1; c < actualMoved; c += 1) {
+      const nextIdx = isShelfChute(state, src)
+        ? simulatedSrc.length - 1
+        : simulatedSrc.indexOf(itemId);
+      if (nextIdx !== -1) simulatedSrc.splice(nextIdx, 1);
+    }
+
     if (isRowPacked(simulatedDst, dst.capacity)) {
       return { score: 10000, reason: 'complete_pack' };
     }
@@ -648,36 +700,68 @@
     const dstAllSame = dstFront.length > 0 && dstFront.every((id) => id === itemId);
     const srcAllSame = srcFront.every((id) => id === itemId);
 
-    if (dstAllSame && (!srcAllSame || dstFront.length >= srcFront.length)) {
-      return { score: 2000 + dstFront.length * 10, reason: 'consolidate' };
+    if (dstFront.length === 0 && srcAllSame && src.layers.length === 1) {
+      return { score: -500, reason: 'redundant_empty_move' };
     }
 
-    if (srcFront.length === 1 && src.layers.length > 1) {
-      return { score: 1500, reason: 'reveal_back_layer' };
+    if (dstAllSame && srcAllSame && src.layers.length === 1 && dstFront.length < srcFront.length) {
+      return { score: -300, reason: 'pointless_split' };
+    }
+
+    let score = 10;
+    let reason = 'reposition';
+
+    if (simulatedSrc.length === 0 && src.layers.length > 1) {
+      score += 3500;
+      reason = 'reveal_back_layer';
+    }
+
+    if (dstAllSame && (!srcAllSame || dstFront.length >= srcFront.length || src.layers.length > 1)) {
+      score += 2200 + simulatedDst.length * 120;
+      if (reason === 'reposition') reason = 'consolidate';
+    } else if (dstFront.length > 0 && dstFront[dstFront.length - 1] === itemId) {
+      score += 1200 + actualMoved * 80;
+      if (reason === 'reposition') reason = 'consolidate';
+    }
+
+    if (simulatedSrc.length > 0 && !srcAllSame) {
+      score += 350;
     }
 
     const hasWideItem = getAllShelves(state).some((s) =>
       s.layers[0].some((id) => ITEMS[id].width > 1)
     );
     const srcRemBefore = getRemainingWidth(src);
-    if (hasWideItem && srcRemBefore < 2 && srcRemBefore + item.width >= 2 && !srcAllSame) {
-      return { score: 1000, reason: 'open_wide_slot' };
+    const srcRemAfter = src.capacity - getRowWidth(simulatedSrc);
+    if (hasWideItem && srcRemBefore < 2 && srcRemAfter >= 2 && !srcAllSame) {
+      score += 1000;
+      if (reason === 'reposition') reason = 'open_wide_slot';
     }
 
-    if (dstFront.length === 0 && srcFront.length > 1 && !srcAllSame) {
-      return { score: 100, reason: 'free_mixed_shelf' };
+    if (dstFront.length === 0 && !srcAllSame) {
+      score += 300 + actualMoved * 50;
+      if (reason === 'reposition') reason = 'free_mixed_shelf';
     }
 
-    if (dstFront.length === 0 && srcFront.length === 1 && src.layers.length === 1) {
-      return { score: -100, reason: 'redundant_empty_move' };
+    if (dstFront.length > 0 && dstFront[dstFront.length - 1] !== itemId) {
+      score -= 150;
     }
 
-    return { score: 10, reason: 'reposition' };
+    return { score, reason };
   }
 
   function findBestHint(state) {
     if (!state || state.status !== 'playing') return null;
     const shelves = getAllShelves(state);
+    const recentSigs = new Set();
+    if (Array.isArray(state.history)) {
+      const start = Math.max(0, state.history.length - 6);
+      for (let h = start; h < state.history.length; h += 1) {
+        const snap = state.history[h];
+        recentSigs.add(boardSignature(snap.shelves, snap.tempTray));
+      }
+    }
+
     let best = null;
 
     for (const src of shelves) {
@@ -690,7 +774,28 @@
 
         for (const dst of shelves) {
           if (!canMoveItem(state, src.id, i, dst.id)) continue;
-          const { score, reason } = scoreMove(state, src, i, dst);
+          let { score, reason } = scoreMove(state, src, i, dst);
+
+          if (recentSigs.size > 0 && score < 9000) {
+            const simShelves = state.shelves.map((s) => ({
+              id: s.id,
+              layers: [s.layers[0].slice()],
+            }));
+            const simTemp = {
+              id: 'temp',
+              layers: [state.tempTray.layers[0].slice()],
+            };
+            const sSrc = src.isTemp ? simTemp : simShelves.find((x) => x.id === src.id);
+            const sDst = dst.isTemp ? simTemp : simShelves.find((x) => x.id === dst.id);
+            if (sSrc && sDst) {
+              sSrc.layers[0].splice(i, 1);
+              sDst.layers[0].push(itemId);
+              if (recentSigs.has(boardSignature(simShelves, simTemp))) {
+                score -= 4000;
+              }
+            }
+          }
+
           if (!best || score > best.score) {
             best = {
               srcShelfId: src.id,
@@ -706,6 +811,31 @@
     }
 
     return best;
+  }
+
+  function solveLevel(initialState, maxSteps = 120) {
+    if (!initialState) return { solvable: false, moves: 0 };
+    const sim = JSON.parse(JSON.stringify(initialState));
+    sim.history = [];
+    let steps = 0;
+    while (sim.status === 'playing' && steps < maxSteps) {
+      if (sim.feverMagnetReady) {
+        const mag = triggerFeverMagnet(sim);
+        if (mag.ok) continue;
+      }
+      const hint = findBestHint(sim);
+      if (!hint) break;
+      const res = moveItem(sim, hint.srcShelfId, hint.itemIndex, hint.dstShelfId, { batch: true });
+      if (!res.ok) break;
+      if (sim.history.length > 10) sim.history.shift();
+      steps += 1;
+    }
+    return {
+      solvable: sim.status === 'won',
+      moves: sim.moves,
+      packsCleared: sim.packsCleared,
+      totalPacks: sim.totalPacks,
+    };
   }
 
   function validateLevel(level) {
@@ -898,6 +1028,7 @@
     expandTempTray,
     shuffleFrontRows,
     findBestHint,
+    solveLevel,
     canAutoComplete,
     validateLevel,
     getThreeStarMoves,
