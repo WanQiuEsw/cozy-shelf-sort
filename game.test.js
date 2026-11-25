@@ -9,6 +9,11 @@ const {
   getRowWidth,
   getRemainingWidth,
   isShelfLocked,
+  isShelfChute,
+  isShelfStrict,
+  isItemAccessible,
+  canShelfAcceptItem,
+  toggleHardcoreMode,
   canMoveItem,
   moveItem,
   triggerFeverMagnet,
@@ -444,4 +449,42 @@ test('QTE seal timing awards 25 coins on perfect center hit and 10 coins on norm
   assert.equal(s.perfectSeals, 1);
   assert.equal(evaluateSealTiming(65).isPerfect, true);
   assert.equal(evaluateSealTiming(66).isPerfect, false);
+});
+
+test('Direction 1 (LIFO chute shelves) blocks inner items and Direction 2 (strict shelves) rejects mixed items', () => {
+  // Level 6 (index 5) has chuteShelves: [0, 1] and strictShelves: [4, 6]
+  const s = createGameState(5);
+  assert.equal(isShelfChute(s, s.shelves[0]), true);
+  assert.equal(isShelfStrict(s, s.shelves[4]), true);
+
+  // Direction 1: Shelf 0 front row is ['mask_box', 'lipstick', 'perfume']
+  // Inner items (index 0 and 1) are blocked; only outermost item (index 2, 'perfume') is accessible!
+  assert.equal(isItemAccessible(s, s.shelves[0], 0), false);
+  assert.equal(isItemAccessible(s, s.shelves[0], 1), false);
+  assert.equal(isItemAccessible(s, s.shelves[0], 2), true);
+  assert.equal(canMoveItem(s, 'shelf-0', 0, 'shelf-2'), false);
+  assert.equal(canMoveItem(s, 'shelf-0', 1, 'shelf-6'), false);
+
+  // Outermost item 'powder' (index 1) on chute shelf-1 CAN move to shelf-2 ( Wait shelf-1 is ['toner_set', 'powder'], remaining 1, shelf-4 has ['powder', 'mask_box'] (strict, rightmost is mask_box, remaining 1)
+  // Let's free 1 slot on shelf-2 by moving 'serum' (shelf-2 idx 1) -> strict shelf-6 (['lipstick', 'perfume', 'serum'], rightmost is 'serum')!
+  assert.equal(canShelfAcceptItem(s, s.shelves[6], 'serum'), true);
+  assert.equal(canMoveItem(s, 'shelf-2', 1, 'shelf-6'), true);
+
+  // Direction 2: Moving 'perfume' (from shelf-0 idx 2) into strict shelf-6 must be rejected because 'perfume' !== 'serum'
+  assert.equal(canShelfAcceptItem(s, s.shelves[6], 'perfume'), false);
+  assert.equal(canMoveItem(s, 'shelf-0', 2, 'shelf-6'), false);
+
+  // Now move 'serum' from shelf-2 idx 1 -> strict shelf-6, freeing 1 slot on shelf-2
+  assert.equal(moveItem(s, 'shelf-2', 1, 'shelf-6').ok, true);
+  // Outermost item 'perfume' (index 2) on chute shelf-0 CAN now move to shelf-2, while inner index 1 ('lipstick') still cannot!
+  assert.equal(canMoveItem(s, 'shelf-0', 2, 'shelf-2'), true);
+  assert.equal(canMoveItem(s, 'shelf-0', 1, 'shelf-2'), false);
+
+  // Global Hardcore Mode toggle turns all shelves into Chute + Strict
+  assert.equal(toggleHardcoreMode(s, true), true);
+  assert.equal(isShelfChute(s, s.shelves[2]), true);
+  assert.equal(isShelfStrict(s, s.shelves[2]), true);
+  assert.equal(isItemAccessible(s, s.shelves[2], 0), false);
+  assert.equal(toggleHardcoreMode(s, false), false);
+  assert.equal(isShelfChute(s, s.shelves[2]), false);
 });

@@ -268,6 +268,19 @@ body {
   font-size: 11px;
 }
 
+.hardcore-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hardcore-btn--active {
+  background: linear-gradient(135deg, #e03131 0%, #c92a2a 100%);
+  border-color: #ffa8a8;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(201, 42, 42, 0.35);
+}
+
 .hud-sub {
   padding: 2px 16px 8px;
 }
@@ -706,6 +719,57 @@ body {
   padding: 1px 6px;
   border-radius: 999px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+}
+
+.shelf-card--chute {
+  border-color: #74c0fc;
+  background: linear-gradient(90deg, rgba(227, 242, 253, 0.72) 0%, var(--shelf-bg) 55%);
+}
+
+.shelf-card--strict {
+  border-color: #f783ac;
+}
+
+.shelf-rule-badges {
+  position: absolute;
+  top: -8px;
+  left: 8px;
+  z-index: 4;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.rule-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.rule-badge--chute {
+  background: linear-gradient(135deg, #1c7ed6 0%, #1864ab 100%);
+}
+
+.rule-badge--strict {
+  background: linear-gradient(135deg, #d6336c 0%, #a61e4d 100%);
+}
+
+.item-tile--blocked {
+  opacity: 0.56;
+  filter: saturate(0.65);
+  cursor: not-allowed;
+}
+
+.item-tile--blocked::before {
+  content: '🔒';
+  position: absolute;
+  bottom: 2px;
+  right: 3px;
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.85;
 }
 
 .shelf-stage {

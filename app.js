@@ -11,6 +11,11 @@
     getRemainingWidth,
     isRowPacked,
     isShelfLocked,
+    isShelfChute,
+    isShelfStrict,
+    isItemAccessible,
+    canShelfAcceptItem,
+    toggleHardcoreMode,
     getAllShelves,
     findShelf,
     canMoveItem,
@@ -50,6 +55,7 @@
     levelTitle: document.getElementById('levelTitle'),
     eliteTag: document.getElementById('eliteTag'),
     coinCount: document.getElementById('coinCount'),
+    hardcoreToggleBtn: document.getElementById('hardcoreToggleBtn'),
     soundToggleBtn: document.getElementById('soundToggleBtn'),
     restartBtn: document.getElementById('restartBtn'),
     themeLabel: document.getElementById('themeLabel'),
@@ -133,6 +139,7 @@
           : 0,
         coins: Number.isFinite(parsed.coins) ? parsed.coins : 0,
         muted: Boolean(parsed.muted),
+        hardcoreMode: Boolean(parsed.hardcoreMode),
         bestStars: parsed.bestStars && typeof parsed.bestStars === 'object' ? parsed.bestStars : {},
         records: parsed.records && typeof parsed.records === 'object' ? parsed.records : {},
         achievements:
@@ -149,6 +156,7 @@
         unlockedLevelIndex: 0,
         coins: 0,
         muted: false,
+        hardcoreMode: false,
         bestStars: {},
         records: {},
         achievements: {},
@@ -225,7 +233,9 @@
   }
 
   let save = loadSave();
-  let state = createGameState(save.currentLevelIndex, save.boosters);
+  let state = createGameState(save.currentLevelIndex, save.boosters, null, {
+    hardcoreMode: save.hardcoreMode,
+  });
   let selected = null;
   let activeHint = null;
   let toastTimer = null;
@@ -408,7 +418,9 @@
       save.currentLevelIndex = Math.max(0, Math.min(index, LEVELS.length - 1));
       persistSave();
     }
-    state = createGameState(save.currentLevelIndex, save.boosters, customLevel);
+    state = createGameState(save.currentLevelIndex, save.boosters, customLevel, {
+      hardcoreMode: save.hardcoreMode,
+    });
     selected = null;
     clearHint();
     closeSealQte();
@@ -456,6 +468,7 @@
     if (options.isLanded) node.classList.add('item-tile--landed');
     if (options.isHintSrc) node.classList.add('item-tile--hint-src');
     if (options.isRush) node.classList.add('item-tile--rush');
+    if (options.isBlocked) node.classList.add('item-tile--blocked');
 
     node.style.setProperty('--item-bg', item.bg);
     node.style.setProperty('--item-border', item.border);
@@ -553,6 +566,31 @@
     if (animFlags.revealedIds.has(shelf.id)) card.classList.add('shelf-card--revealed');
 
     const locked = isShelfLocked(state, shelf);
+    const chute = isShelfChute(state, shelf);
+    const strict = isShelfStrict(state, shelf);
+    if (chute) card.classList.add('shelf-card--chute');
+    if (strict) card.classList.add('shelf-card--strict');
+
+    if (!willPack && !shelf.isTemp && (chute || strict)) {
+      const ruleWrap = document.createElement('div');
+      ruleWrap.className = 'shelf-rule-badges';
+      if (chute) {
+        const b = document.createElement('span');
+        b.className = 'rule-badge rule-badge--chute';
+        b.textContent = '⏩滑道';
+        b.title = '滑道货架：仅可拿取最外侧（最右侧）商品，不可抽中间';
+        ruleWrap.appendChild(b);
+      }
+      if (strict) {
+        const b = document.createElement('span');
+        b.className = 'rule-badge rule-badge--strict';
+        b.textContent = '🏷️专柜';
+        b.title = '同款专柜：仅可放入与当前柜内同款的商品（或空柜）';
+        ruleWrap.appendChild(b);
+      }
+      card.appendChild(ruleWrap);
+    }
+
     if (locked) {
       card.classList.add('shelf-card--locked');
       const overlay = document.createElement('div');
@@ -599,7 +637,8 @@
         activeHint && activeHint.srcShelfId === shelf.id && activeHint.itemIndex === idx
       );
       const isRush = Boolean(state.rushOrder && state.rushOrder.itemId === id);
-      const tile = createItemNode(id, { isSelected, isMatch, isLanded, isHintSrc, isRush });
+      const isBlocked = !isItemAccessible(state, shelf, idx);
+      const tile = createItemNode(id, { isSelected, isMatch, isLanded, isHintSrc, isRush, isBlocked });
       tile.addEventListener('click', (e) => {
         e.stopPropagation();
         handleItemClick(shelf.id, idx);
@@ -676,6 +715,11 @@
     el.levelTitle.textContent = level.title;
     el.eliteTag.classList.toggle('hidden', !level.isElite);
     el.coinCount.textContent = String(save.coins);
+    if (el.hardcoreToggleBtn) {
+      const hc = Boolean(state.hardcoreMode);
+      el.hardcoreToggleBtn.textContent = hc ? '🔥 硬核' : '🌱 休闲';
+      el.hardcoreToggleBtn.classList.toggle('hardcore-btn--active', hc);
+    }
     el.soundToggleBtn.textContent = save.muted ? '🔇' : '🔊';
 
     el.packProgressText.textContent = `${state.packsCleared} / ${state.totalPacks}`;
@@ -753,6 +797,17 @@
       vibrate([18, 30, 18]);
       if (dst && isShelfLocked(state, dst)) {
         showToast(`🔒 再打包 ${dst.unlockAtPacks - state.packsCleared} 箱才能解锁该货架哦~`);
+      } else if (src && !isItemAccessible(state, src, itemIndex)) {
+        showToast('⏩ 滑道货架只能从最右侧（外侧）依次拿取商品，不能抽中间哦！');
+      } else if (
+        dst &&
+        itemId &&
+        isShelfStrict(state, dst) &&
+        dst.layers[0].length > 0 &&
+        dst.layers[0][dst.layers[0].length - 1] !== itemId
+      ) {
+        const reqItem = ITEMS[dst.layers[0][dst.layers[0].length - 1]];
+        showToast(`🏷️ 同款专柜严禁混放！当前仅可放入「${reqItem ? reqItem.name : '同款'}」~`);
       } else if (item) {
         showToast(`空间不足，「${item.name}」占 ${item.width} 格哦~`);
       }
@@ -844,7 +899,25 @@
     if (state.status !== 'playing') return;
     clearHint();
 
+    const clickedShelf = findShelf(state, shelfId);
     if (!selected) {
+      if (clickedShelf && !isItemAccessible(state, clickedShelf, itemIndex)) {
+        animFlags = {
+          shakeShelfId: shelfId,
+          packedShelfId: null,
+          packBurst: null,
+          landed: null,
+          revealedIds: new Set(),
+        };
+        sfx.error();
+        vibrate([18, 30, 18]);
+        showToast('⏩ 滑道货架只能拿取最右侧（外侧）商品，不能直接抽中间哦！');
+        render();
+        setTimeout(() => {
+          animFlags.shakeShelfId = null;
+        }, 300);
+        return;
+      }
       selected = { shelfId, itemIndex };
       sfx.select();
       render();
@@ -858,6 +931,11 @@
     }
 
     if (selected.shelfId === shelfId) {
+      if (clickedShelf && !isItemAccessible(state, clickedShelf, itemIndex)) {
+        sfx.error();
+        showToast('⏩ 滑道货架只能拿取最右侧（外侧）商品，不能抽中间哦！');
+        return;
+      }
       selected = { shelfId, itemIndex };
       sfx.select();
       render();
@@ -887,6 +965,19 @@
   function handleItemDoubleClick(shelfId, itemIndex) {
     if (state.status !== 'playing') return;
     const src = findShelf(state, shelfId);
+    if (src && !isItemAccessible(state, src, itemIndex)) {
+      animFlags = {
+        shakeShelfId: shelfId,
+        packedShelfId: null,
+        packBurst: null,
+        landed: null,
+        revealedIds: new Set(),
+      };
+      sfx.error();
+      showToast('⏩ 滑道货架只能从最右侧依次拿取，中间商品被挡住啦！');
+      render();
+      return;
+    }
     const itemId = src && src.layers[0][itemIndex];
     if (!itemId) return;
 
@@ -1130,6 +1221,8 @@
       const meta = document.createElement('div');
       meta.className = 'level-item-meta';
       const tags = [`${theme.name}`, `${lvl.shelves.length}架`];
+      if (lvl.chuteShelves && lvl.chuteShelves.length) tags.push('⏩滑道');
+      if (lvl.strictShelves && lvl.strictShelves.length) tags.push('🏷️专柜');
       if (lvl.mysteryBack) tags.push('❓盲盒');
       if (lvl.lockedShelves) tags.push('🔒锁架');
       meta.textContent = tags.join(' · ');
@@ -1361,6 +1454,23 @@
     persistSave();
     render();
   });
+
+  if (el.hardcoreToggleBtn) {
+    el.hardcoreToggleBtn.addEventListener('click', () => {
+      const next = toggleHardcoreMode(state);
+      save.hardcoreMode = next;
+      selected = null;
+      persistSave();
+      sfx.select();
+      showToast(
+        next
+          ? '🔥 已开启「倒水级硬核模式」：全场货架均为⏩滑道取物 + 🏷️同款专柜！'
+          : '🌱 已切换回标准关卡规则模式',
+        next
+      );
+      render();
+    });
+  }
 
   el.restartBtn.addEventListener('click', () => {
     startLevel(state.levelIndex, state.customLevel);

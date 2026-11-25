@@ -46,6 +46,8 @@
         id: s.id,
         capacity: s.capacity,
         isTemp: false,
+        isChute: Boolean(s.isChute),
+        isStrict: Boolean(s.isStrict),
         unlockAtPacks: s.unlockAtPacks || 0,
         layers: cloneLayers(s.layers),
       })),
@@ -56,6 +58,7 @@
         isTemp: true,
         layers: cloneLayers(state.tempTray.layers),
       },
+      hardcoreMode: Boolean(state.hardcoreMode),
       moves: state.moves,
       packsCleared: state.packsCleared,
       coins: state.coins,
@@ -133,14 +136,20 @@
     return Math.round(totalWidth / SHELF_CAPACITY);
   }
 
-  function createGameState(levelIndex = 0, savedBoosters, customLevel = null) {
+  function createGameState(levelIndex = 0, savedBoosters, customLevel = null, options = {}) {
     const idx = Math.max(0, Math.min(levelIndex, LEVELS.length - 1));
     const level = customLevel || LEVELS[idx];
     const lockedMap = (level && level.lockedShelves) || {};
+    const chuteSet = new Set(Array.isArray(level && level.chuteShelves) ? level.chuteShelves : []);
+    const strictSet = new Set(Array.isArray(level && level.strictShelves) ? level.strictShelves : []);
+    const hardcoreMode = Boolean((options && options.hardcoreMode) || (level && level.hardcoreMode));
+
     const shelves = level.shelves.map((rawLayers, i) => ({
       id: `shelf-${i}`,
       capacity: SHELF_CAPACITY,
       isTemp: false,
+      isChute: hardcoreMode || chuteSet.has(i),
+      isStrict: hardcoreMode || strictSet.has(i),
       unlockAtPacks: Number(lockedMap[i]) || 0,
       layers: rawLayers.length ? cloneLayers(rawLayers) : [[]],
     }));
@@ -150,6 +159,7 @@
       levelId: level.id,
       isDaily: Boolean(level.isDaily),
       mysteryBack: Boolean(level.mysteryBack),
+      hardcoreMode,
       parMoves: level.parMoves || null,
       customLevel: customLevel || null,
       shelves,
@@ -193,6 +203,37 @@
     return state.shelves.find((s) => s.id === shelfId) || null;
   }
 
+  function isShelfChute(state, shelf) {
+    return Boolean(shelf && !shelf.isTemp && (shelf.isChute || (state && state.hardcoreMode)));
+  }
+
+  function isShelfStrict(state, shelf) {
+    return Boolean(shelf && !shelf.isTemp && (shelf.isStrict || (state && state.hardcoreMode)));
+  }
+
+  function isItemAccessible(state, shelf, itemIndex) {
+    if (!shelf || !Array.isArray(shelf.layers) || !Array.isArray(shelf.layers[0])) return false;
+    const front = shelf.layers[0];
+    if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= front.length) return false;
+    if (isShelfChute(state, shelf)) {
+      return itemIndex === front.length - 1;
+    }
+    return true;
+  }
+
+  function canShelfAcceptItem(state, dst, itemId) {
+    if (!dst || !itemId || !ITEMS[itemId]) return false;
+    const item = ITEMS[itemId];
+    if (getRemainingWidth(dst) < item.width) return false;
+    if (isShelfStrict(state, dst)) {
+      const dstFront = dst.layers[0];
+      if (dstFront.length > 0 && dstFront[dstFront.length - 1] !== itemId) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   function canMoveItem(state, srcShelfId, itemIndex, dstShelfId) {
     if (!state || state.status !== 'playing') return false;
     if (srcShelfId === dstShelfId) return false;
@@ -203,15 +244,12 @@
     if (isShelfLocked(state, src) || isShelfLocked(state, dst)) return false;
     if (dst.isTemp && dst.capacity <= 0) return false;
 
-    const srcFront = src.layers[0];
-    if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= srcFront.length) {
+    if (!isItemAccessible(state, src, itemIndex)) {
       return false;
     }
 
-    const item = ITEMS[srcFront[itemIndex]];
-    if (!item) return false;
-
-    return getRemainingWidth(dst) >= item.width;
+    const itemId = src.layers[0][itemIndex];
+    return canShelfAcceptItem(state, dst, itemId);
   }
 
   function slideIfEmpty(shelf) {
@@ -261,11 +299,18 @@
 
     if (options && options.batch) {
       const itemWidth = ITEMS[itemId].width;
+      const srcIsChute = isShelfChute(state, src);
       while (
         !isRowPacked(dst.layers[0], dst.capacity) &&
         getRemainingWidth(dst) >= itemWidth
       ) {
-        const nextIdx = src.layers[0].indexOf(itemId);
+        let nextIdx = -1;
+        if (srcIsChute) {
+          const topIdx = src.layers[0].length - 1;
+          if (topIdx >= 0 && src.layers[0][topIdx] === itemId) nextIdx = topIdx;
+        } else {
+          nextIdx = src.layers[0].indexOf(itemId);
+        }
         if (nextIdx === -1) break;
         src.layers[0].splice(nextIdx, 1);
         dst.layers[0].push(itemId);
@@ -353,6 +398,7 @@
     const prev = state.history.pop();
     state.shelves = prev.shelves;
     state.tempTray = prev.tempTray;
+    state.hardcoreMode = Boolean(prev.hardcoreMode);
     state.moves = prev.moves;
     state.packsCleared = prev.packsCleared;
     state.coins = prev.coins;
@@ -530,6 +576,20 @@
     };
   }
 
+  function toggleHardcoreMode(state, enabled) {
+    if (!state) return false;
+    const level = state.customLevel || LEVELS[state.levelIndex];
+    const chuteSet = new Set(Array.isArray(level && level.chuteShelves) ? level.chuteShelves : []);
+    const strictSet = new Set(Array.isArray(level && level.strictShelves) ? level.strictShelves : []);
+    const next = typeof enabled === 'boolean' ? enabled : !state.hardcoreMode;
+    state.hardcoreMode = next;
+    state.shelves.forEach((s, i) => {
+      s.isChute = next || chuteSet.has(i);
+      s.isStrict = next || strictSet.has(i);
+    });
+    return state.hardcoreMode;
+  }
+
   function expandTempTray(state) {
     if (!state || state.status !== 'playing') {
       return { ok: false, reason: 'not_playing' };
@@ -651,6 +711,7 @@
     for (const src of shelves) {
       const seenTypes = new Set();
       for (let i = 0; i < src.layers[0].length; i += 1) {
+        if (!isItemAccessible(state, src, i)) continue;
         const itemId = src.layers[0][i];
         if (seenTypes.has(itemId)) continue;
         seenTypes.add(itemId);
@@ -856,6 +917,11 @@
     getRemainingWidth,
     isRowPacked,
     isShelfLocked,
+    isShelfChute,
+    isShelfStrict,
+    isItemAccessible,
+    canShelfAcceptItem,
+    toggleHardcoreMode,
     getAllShelves,
     findShelf,
     canMoveItem,

@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.1.0-2e7d32?style=flat-square" alt="Version 1.1.0">
+  <img src="https://img.shields.io/badge/version-1.2.0-2e7d32?style=flat-square" alt="Version 1.2.0">
   <img src="https://img.shields.io/badge/HTML5-CSS3-E34F26?style=flat-square&amp;logo=html5&amp;logoColor=white" alt="HTML5 &amp; CSS3">
   <img src="https://img.shields.io/badge/JavaScript-Vanilla-F7DF1E?style=flat-square&amp;logo=javascript&amp;logoColor=black" alt="Vanilla JavaScript">
   <img src="https://img.shields.io/badge/Web_Audio-Synth-2b9cd8?style=flat-square" alt="Web Audio Synth">
-  <img src="https://img.shields.io/badge/Tests-19_Passing-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="19 Tests Passing">
+  <img src="https://img.shields.io/badge/Tests-20_Passing-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="20 Tests Passing">
 </p>
 
 <p align="center">
@@ -33,6 +33,10 @@
   - **🧲 3连击狂热磁铁**：连续 3 次打包触发 `Fever` 状态时自动充能「狂热磁铁」，一键**零步数（0 步）**将全场所有同款商品瞬间吸齐炸箱。
   - **🎯 胶带封箱暴击（QTE）**：结合《微信跳一跳》时机手感，每次打包后弹出胶带游标，看准中央金色区（`35%~65%`）点击触发 **`🎯 完美封箱 CRIT! (+25💰)`**，普通区间点击亦有 `+10💰` 保底奖励。
 - **⚡ 爽快连携与一键极速收箱**：移入同款货架或双击商品自动触发**同款批量连携移入**；当所有后排暗影与锁架全揭晓且存在必胜解时，自动浮现 **「⚡ 一键极速收箱」** 按钮极速清场。
+- **📦 倒水级硬核策略机制（⏩ 滑道单向取物 + 🏷️ 同款专柜禁混放）**：
+  - **⏩ 弹簧滑道货架（LIFO 栈约束）**：复刻《倒水冲冲冲》“不能抽中间”的核心博弈，滑道货架内**仅能拿取最外侧（最右侧）商品**，被挡在内部的商品需先清空外侧方可取出；
+  - **🏷️ 同款专柜货架（同色对齐约束）**：专柜货架严禁混放杂物，**仅允许移入与当前柜内最右侧商品同款的商品**（或空柜）；
+  - **🔥 一键切换全场硬核模式**：顶部状态栏支持随时切换「🌱 休闲 / 🔥 硬核」，开启硬核模式后全场所有货架均启用「⏩滑道 + 🏷️专柜」双重约束！
 - **📦 2 格异形大件 + 盲盒与锁架博弈**：引入占 2 格宽度的礼盒/大桶商品、清空前排才揭晓的 **「❓盲盒后排」** 以及需打包达标自动破封的 **「🔒封条锁架」**。
 - **🍰 4 大主题 · 12 关主线 · 每日盲盒挑战**：内置「🧊 便利店冰柜」「🐾 萌宠猫咖架」「💄 治愈梳妆台」「🍰 甜品烘焙坊」4 套主题与 12 个梯度关卡，以及按日期种子生成的 **「📅 每日盲盒」**。
 - **💰 金币经济与阶梯临时理货台**：底部临时理货台支持逐格扩容（`+1 → +4 格`），赚取的金币可直接购买「撤回 / +1临时格 / 重排 / 提示」4 类道具，或通过 3 秒模拟激励视频免费补给。
@@ -60,6 +64,7 @@
 | **双击快捷移入** | 双击任意前排商品，自动匹配最佳同款货架或空位一键移入 |
 | **触发封箱暴击** | 每次完成 4 格打包后，看准底部游标滑入中央金色区间时点击，赢取 `+25💰` 暴击赏金 |
 | **释放狂热磁铁** | 达成 `×3` 狂热连击后，点击浮现的「🧲 狂热磁铁」按钮，0 步吸走全场一整箱同款商品 |
+| **切换硬核模式** | 点击顶部导航栏的「🌱 休闲 / 🔥 硬核」按钮，一键开启全场「⏩滑道单向取物 + 🏷️同款专柜」倒水级难度 |
 
 ## 🗂️ 目录结构
 
@@ -71,12 +76,12 @@ cozy-shelf-sort/
 ├── levels.js          # 4 大主题、26 种商品字典、12 关主线与每日盲盒生成器
 ├── game.js            # 纯函数核心状态机（移动、急单、磁铁、QTE、死锁、提示与天梯）
 ├── app.js             # 视图控制器、Web Audio 实时合成音效与 LocalStorage 存档
-└── game.test.js       # Node.js 原生测试套件（19 项核心逻辑与关卡校验测试）
+└── game.test.js       # Node.js 原生测试套件（20 项核心逻辑与关卡校验测试）
 ```
 
 ## 🧪 运行自动化测试
 
-使用 Node.js 18+ 内置测试运行器零配置验证全部 19 项单元测试：
+使用 Node.js 18+ 内置测试运行器零配置验证全部 20 项单元测试：
 
 ```powershell
 node --test game.test.js
