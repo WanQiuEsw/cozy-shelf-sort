@@ -11,10 +11,6 @@
   const COMBO_GRACE_MOVES = 3;
   const RUSH_ORDER_MOVES = 4;
   const RUSH_ORDER_REWARD = 25;
-  const SEAL_PERFECT_MIN = 35;
-  const SEAL_PERFECT_MAX = 65;
-  const SEAL_PERFECT_REWARD = 25;
-  const SEAL_GOOD_REWARD = 10;
 
   function getRowWidth(row) {
     let total = 0;
@@ -68,31 +64,9 @@
       feverMagnetReady: Boolean(state.feverMagnetReady),
       rushOrder: state.rushOrder ? { ...state.rushOrder } : null,
       rushOrdersCompleted: state.rushOrdersCompleted || 0,
-      perfectSeals: state.perfectSeals || 0,
       boostersUsed: state.boostersUsed,
       status: state.status,
     };
-  }
-
-  function evaluateSealTiming(cursorPct) {
-    const pct = Math.max(0, Math.min(100, Number(cursorPct) || 0));
-    const isPerfect = pct >= SEAL_PERFECT_MIN && pct <= SEAL_PERFECT_MAX;
-    return {
-      grade: isPerfect ? 'perfect' : 'good',
-      label: isPerfect ? '🎯 完美封箱 CRIT!' : '📦 极速封箱!',
-      bonusCoins: isPerfect ? SEAL_PERFECT_REWARD : SEAL_GOOD_REWARD,
-      isPerfect,
-    };
-  }
-
-  function claimSealBonus(state, cursorPct) {
-    if (!state) return evaluateSealTiming(cursorPct);
-    const res = evaluateSealTiming(cursorPct);
-    state.coins += res.bonusCoins;
-    if (res.isPerfect) {
-      state.perfectSeals = (state.perfectSeals || 0) + 1;
-    }
-    return res;
   }
 
   function pickNextRushOrder(shelves, tempTray, excludeItemId = null) {
@@ -182,7 +156,6 @@
       feverMagnetReady: false,
       rushOrder: null,
       rushOrdersCompleted: 0,
-      perfectSeals: 0,
       boostersUsed: 0,
       status: 'playing',
     };
@@ -408,7 +381,6 @@
     state.feverMagnetReady = Boolean(prev.feverMagnetReady);
     state.rushOrder = prev.rushOrder ? { ...prev.rushOrder } : null;
     state.rushOrdersCompleted = prev.rushOrdersCompleted || 0;
-    state.perfectSeals = prev.perfectSeals || 0;
     state.boostersUsed = prev.boostersUsed || 0;
     state.status = prev.status;
     return { ok: true };
@@ -903,16 +875,10 @@
     COMBO_GRACE_MOVES,
     RUSH_ORDER_MOVES,
     RUSH_ORDER_REWARD,
-    SEAL_PERFECT_MIN,
-    SEAL_PERFECT_MAX,
-    SEAL_PERFECT_REWARD,
-    SEAL_GOOD_REWARD,
     MANAGER_LADDER,
     ACHIEVEMENTS,
     createGameState,
     pickNextRushOrder,
-    evaluateSealTiming,
-    claimSealBonus,
     getRowWidth,
     getRemainingWidth,
     isRowPacked,

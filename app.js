@@ -21,7 +21,6 @@
     canMoveItem,
     moveItem,
     triggerFeverMagnet,
-    claimSealBonus,
     isDeadlocked,
     undoMove,
     expandTempTray,
@@ -78,8 +77,6 @@
     tempCapBadge: document.getElementById('tempCapBadge'),
     tempTrayContainer: document.getElementById('tempTrayContainer'),
     autoCompleteBtn: document.getElementById('autoCompleteBtn'),
-    sealQteBar: document.getElementById('sealQteBar'),
-    sealQteCursor: document.getElementById('sealQteCursor'),
     deadlockBanner: document.getElementById('deadlockBanner'),
     btnUndo: document.getElementById('btnUndo'),
     badgeUndo: document.getElementById('badgeUndo'),
@@ -198,26 +195,40 @@
   }
 
   const sfx = {
-    select: () => playTone(520, 680, 0.06, 'sine', 0.07),
-    place: () => playTone(340, 220, 0.07, 'triangle', 0.08),
-    reveal: () => playTone(300, 560, 0.13, 'sine', 0.05, 0.04),
+    select: () => {
+      playTone(540, 740, 0.055, 'sine', 0.08);
+      playTone(1080, 1320, 0.04, 'triangle', 0.035, 0.01);
+    },
+    place: () => {
+      playTone(360, 210, 0.075, 'triangle', 0.095);
+      playTone(180, 110, 0.06, 'sine', 0.07, 0.015);
+    },
+    reveal: () => {
+      playTone(320, 620, 0.14, 'sine', 0.065, 0.03);
+      playTone(480, 880, 0.12, 'triangle', 0.045, 0.07);
+    },
     error: () => {
-      playTone(170, 115, 0.09, 'sawtooth', 0.04);
-      playTone(145, 95, 0.09, 'sawtooth', 0.04, 0.09);
+      playTone(170, 115, 0.09, 'sawtooth', 0.045);
+      playTone(145, 95, 0.09, 'sawtooth', 0.045, 0.09);
     },
     pack: (combo) => {
-      const mul = Math.pow(2, Math.min(combo - 1, 5) / 12);
-      playTone(523 * mul, 523 * mul, 0.1, 'triangle', 0.09, 0);
-      playTone(659 * mul, 659 * mul, 0.11, 'triangle', 0.09, 0.06);
-      playTone(784 * mul, 880 * mul, 0.16, 'sine', 0.09, 0.12);
+      const mul = Math.pow(2, Math.min(combo - 1, 6) / 12);
+      // Punchy box thump + tape zip + ascending chime arpeggio
+      playTone(150, 68, 0.12, 'sine', 0.14, 0);
+      playTone(523.25 * mul, 587.33 * mul, 0.11, 'triangle', 0.1, 0.02);
+      playTone(659.25 * mul, 783.99 * mul, 0.12, 'triangle', 0.1, 0.07);
+      playTone(783.99 * mul, 1046.5 * mul, 0.18, 'sine', 0.11, 0.12);
+      if (combo >= 2) {
+        playTone(1046.5 * mul, 1318.5 * mul, 0.22, 'sine', 0.09, 0.17);
+      }
     },
     reward: () => {
       playTone(587, 659, 0.1, 'triangle', 0.08, 0);
       playTone(880, 1046, 0.16, 'sine', 0.09, 0.09);
     },
     win: () => {
-      [523, 659, 784, 1046].forEach((f, idx) =>
-        playTone(f, f * 1.01, 0.18, 'triangle', 0.09, idx * 0.08)
+      [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, idx) =>
+        playTone(f, f * 1.015, 0.2, 'triangle', 0.1, idx * 0.075)
       );
     },
   };
@@ -244,11 +255,6 @@
   let clockTimer = null;
   let elapsedSec = 0;
   let activeRankTab = 'ladder';
-  let qteFrame = null;
-  let qteTimeout = null;
-  let qteCursorPct = 50;
-  let qteDir = 1;
-  let qteActive = false;
   let animFlags = {
     shakeShelfId: null,
     packedShelfId: null,
@@ -272,65 +278,6 @@
   function clearHint() {
     activeHint = null;
     clearTimeout(hintTimer);
-  }
-
-  function closeSealQte() {
-    qteActive = false;
-    cancelAnimationFrame(qteFrame);
-    clearTimeout(qteTimeout);
-    if (el.sealQteBar) el.sealQteBar.classList.add('hidden');
-  }
-
-  function startSealQte() {
-    if (!el.sealQteBar || !el.sealQteCursor || state.status !== 'playing') return;
-    closeSealQte();
-    qteActive = true;
-    qteCursorPct = 10;
-    qteDir = 1;
-    el.sealQteCursor.style.left = `${qteCursorPct}%`;
-    el.sealQteBar.classList.remove('hidden');
-
-    let lastTs = performance.now();
-    const tick = (now) => {
-      if (!qteActive) return;
-      const dt = Math.min(50, now - lastTs);
-      lastTs = now;
-      qteCursorPct += qteDir * dt * 0.14;
-      if (qteCursorPct >= 96) {
-        qteCursorPct = 96;
-        qteDir = -1;
-      } else if (qteCursorPct <= 4) {
-        qteCursorPct = 4;
-        qteDir = 1;
-      }
-      el.sealQteCursor.style.left = `${qteCursorPct}%`;
-      qteFrame = requestAnimationFrame(tick);
-    };
-    qteFrame = requestAnimationFrame(tick);
-    qteTimeout = setTimeout(() => {
-      closeSealQte();
-    }, 2400);
-  }
-
-  function handleSealQteHit() {
-    if (!qteActive || state.status !== 'playing') return;
-    const hitPct = qteCursorPct;
-    closeSealQte();
-    const res = claimSealBonus(state, hitPct);
-    save.coins += res.bonusCoins;
-    persistSave();
-    if (res.isPerfect) {
-      sfx.reward();
-      vibrate([20, 30, 40]);
-      el.appShell.classList.remove('app-shell--bump');
-      void el.appShell.offsetWidth;
-      el.appShell.classList.add('app-shell--bump');
-    } else {
-      sfx.select();
-      vibrate(15);
-    }
-    showToast(`${res.label} 额外赏金 +${res.bonusCoins}💰`, res.isPerfect);
-    render();
   }
 
   function applyTheme(themeKey) {
@@ -423,7 +370,6 @@
     });
     selected = null;
     clearHint();
-    closeSealQte();
     animFlags = {
       shakeShelfId: null,
       packedShelfId: null,
@@ -509,21 +455,41 @@
     const burst = document.createElement('div');
     burst.className = 'pack-burst';
 
+    const ring = document.createElement('span');
+    ring.className = 'pack-shockwave';
+    burst.appendChild(ring);
+
+    const item = packBurst.itemId && ITEMS[packBurst.itemId];
+    const emojiTag = item ? `${item.emoji}📦 ` : '📦 ';
+
     const label = document.createElement('span');
-    label.className = 'pack-float';
+    label.className =
+      packBurst.combo >= 3
+        ? 'pack-float pack-float--fever'
+        : packBurst.combo > 1
+          ? 'pack-float pack-float--combo'
+          : 'pack-float';
     label.textContent =
-      packBurst.combo > 1
-        ? `🔥 ×${packBurst.combo} +${packBurst.coinsEarned}💰`
-        : `+${packBurst.coinsEarned}💰`;
+      packBurst.combo >= 3
+        ? `⚡ 狂热封箱 ×${packBurst.combo} +${packBurst.coinsEarned}💰`
+        : packBurst.combo > 1
+          ? `${emojiTag}连击 ×${packBurst.combo} +${packBurst.coinsEarned}💰`
+          : `${emojiTag}秒封箱 +${packBurst.coinsEarned}💰`;
     burst.appendChild(label);
 
     const sparks = [
-      { tx: '-38px', ty: '-26px', color: '#fcc419' },
-      { tx: '38px', ty: '-26px', color: '#ff922b' },
-      { tx: '-46px', ty: '6px', color: '#ff6b6b' },
-      { tx: '46px', ty: '6px', color: '#51cf66' },
-      { tx: '-20px', ty: '28px', color: '#339af0' },
-      { tx: '22px', ty: '28px', color: '#fcc419' },
+      { tx: '-56px', ty: '-36px', color: '#fcc419' },
+      { tx: '56px', ty: '-36px', color: '#ff922b' },
+      { tx: '-64px', ty: '4px', color: '#ff6b6b' },
+      { tx: '64px', ty: '4px', color: '#51cf66' },
+      { tx: '-34px', ty: '40px', color: '#339af0' },
+      { tx: '34px', ty: '40px', color: '#fcc419' },
+      { tx: '0px', ty: '-48px', color: '#f06595' },
+      { tx: '0px', ty: '46px', color: '#20c997' },
+      { tx: '-44px', ty: '-14px', color: '#845ef7' },
+      { tx: '44px', ty: '-14px', color: '#ffd43b' },
+      { tx: '-48px', ty: '24px', color: '#ff8787' },
+      { tx: '48px', ty: '24px', color: '#69db7c' },
     ];
     for (const s of sparks) {
       const dot = document.createElement('span');
@@ -831,7 +797,12 @@
       shakeShelfId: null,
       packedShelfId: res.packed ? res.packed.shelfId : null,
       packBurst: res.packed
-        ? { shelfId: res.packed.shelfId, coinsEarned: res.packed.coinsEarned, combo: res.packed.combo }
+        ? {
+            shelfId: res.packed.shelfId,
+            itemId: res.packed.itemId,
+            coinsEarned: res.packed.coinsEarned,
+            combo: res.packed.combo,
+          }
         : null,
       landed: landedIdx >= 0 ? { shelfId: dstShelfId, itemIndex: landedIdx } : null,
       revealedIds: new Set(res.revealedShelfIds),
@@ -841,12 +812,10 @@
       save.coins += res.packed.coinsEarned;
       persistSave();
       sfx.pack(res.packed.combo);
-      vibrate(res.packed.combo > 1 ? [20, 30, 30] : 22);
-      if (res.packed.combo >= 2) {
-        el.appShell.classList.remove('app-shell--bump');
-        void el.appShell.offsetWidth;
-        el.appShell.classList.add('app-shell--bump');
-      }
+      vibrate(res.packed.combo > 1 ? [25, 35, 45] : [20, 25]);
+      el.appShell.classList.remove('app-shell--bump');
+      void el.appShell.offsetWidth;
+      el.appShell.classList.add('app-shell--bump');
       const rushSuffix = res.rushCompleted ? ` (含🛵急单+${res.rushCompleted.reward}💰)` : '';
       const msg =
         res.packed.combo >= 3
@@ -855,7 +824,6 @@
             ? `🔥 连击 ×${res.packed.combo}！打包成功 +${res.packed.coinsEarned} 💰${rushSuffix}`
             : `✨ 打包成功！+${res.packed.coinsEarned} 💰${rushSuffix}`;
       showToast(msg, res.packed.combo > 1 || Boolean(res.rushCompleted));
-      if (!res.won) startSealQte();
     } else {
       sfx.place();
       vibrate(8);
@@ -1495,18 +1463,6 @@
   el.autoCompleteBtn.addEventListener('click', runAutoComplete);
   if (el.feverMagnetBtn) {
     el.feverMagnetBtn.addEventListener('click', handleFeverMagnetClick);
-  }
-  if (el.sealQteBar) {
-    el.sealQteBar.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      handleSealQteHit();
-    });
-    el.sealQteBar.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        handleSealQteHit();
-      }
-    });
   }
 
   [el.btnUndo, el.btnExpand, el.btnShuffle, el.btnHint].forEach((btn) => {

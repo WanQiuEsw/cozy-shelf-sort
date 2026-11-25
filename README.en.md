@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2.0-2e7d32?style=flat-square" alt="Version 1.2.0">
+  <img src="https://img.shields.io/badge/version-1.3.0-2e7d32?style=flat-square" alt="Version 1.3.0">
   <img src="https://img.shields.io/badge/HTML5-CSS3-E34F26?style=flat-square&amp;logo=html5&amp;logoColor=white" alt="HTML5 &amp; CSS3">
   <img src="https://img.shields.io/badge/JavaScript-Vanilla-F7DF1E?style=flat-square&amp;logo=javascript&amp;logoColor=black" alt="Vanilla JavaScript">
   <img src="https://img.shields.io/badge/Web_Audio-Synth-2b9cd8?style=flat-square" alt="Web Audio Synth">
-  <img src="https://img.shields.io/badge/Tests-20_Passing-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="20 Tests Passing">
+  <img src="https://img.shields.io/badge/Tests-19_Passing-339933?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="19 Tests Passing">
 </p>
 
 <p align="center">
@@ -24,21 +24,21 @@
 
 ## ✨ Overview
 
-Move and group items across multi-depth shelves: matching **4 slots of identical items** on a front row automatically packs and clears the box, pulling shadowed back-row items forward. Juggle 1-slot standard goods and **2-slot wide items**, uncover **❓ Mystery Back Rows**, break **🔒 Sealed Shelf Locks**, hit **QTE Tape-Seal Crits**, unleash **Fever Magnet Bursts**, and climb the **Store Manager Ladder**.
+Move and group items across multi-depth shelves: matching **4 slots of identical items** on a front row automatically packs and clears the box with punchy audio-visual shockwaves, pulling shadowed back-row items forward. Juggle 1-slot standard goods and **2-slot wide items**, uncover **❓ Mystery Back Rows**, break **🔒 Sealed Shelf Locks**, master **⏩ LIFO Chute & 🏷️ Strict Shelves**, unleash **Fever Magnet Bursts**, and climb the **Store Manager Ladder** across **16 single-player levels (4 to 10 shelves)**.
 
 ## 🎯 Key Features
 
-- **🔥 Three High-Octane Frisson Hooks**:
+- **🔥 High-Impact Frisson Hooks**:
+  - **💥 Punchy Instant Pack Feedback**: Every 4-slot pack triggers a synthesized bass thump, ascending chord arpeggio, shockwave ring, and 12-particle burst with zero flow interruption.
   - **🛵 Rush Order Bounties**: Dynamic 4-move delivery orders award **`+25💰`** bonus coins when the requested item is packed in time.
   - **🧲 3-Combo Fever Magnet Burst**: Reaching a `×3` Fever streak charges a one-tap Magnet that pulls and clears an entire matching pack across all shelves in **0 moves**.
-  - **🎯 QTE Tape-Seal Crit**: After each pack, tap the oscillating tape cursor inside the golden center zone (`35%–65%`) for a **`🎯 CRIT! Perfect Seal (+25💰)`** (or `+10💰` on normal timing).
 - **⚡ Batch Chain Moves & Instant Auto-Complete**: Moving an item into a matching shelf (or double-clicking an item) automatically pulls sibling items along; revealing all hidden back rows unlocks a one-tap **Auto-Complete** button.
 - **🧩 Water-Sort-Style Strategic Constraints (⏩ LIFO Chute Shelves + 🏷️ Strict Same-Item Shelves)**:
   - **⏩ LIFO Chute Shelves**: Only the outermost (rightmost) item can be picked; inner items are blocked until outer items are cleared.
   - **🏷️ Strict Same-Item Shelves**: Only accepts items matching the shelf's rightmost item (or an empty shelf), preventing mixed-item dumping.
   - **🔥 Global Hardcore Mode Toggle**: Switch between Casual (`🌱`) and Hardcore (`🔥`) in the top HUD at any time to enforce LIFO Chute + Strict rules across all shelves.
 - **📦 2-Slot Wide Items, Mystery Rows & Locked Shelves**: Combines 1-slot and 2-slot items with hidden back rows (`mysteryBack`) and pack-gated shelf locks (`lockedShelves`).
-- **🍰 4 Cozy Themes · 12 Campaign Levels · Daily Seed Challenge**: Features *Convenience Store Fridge*, *Cat Cafe Shelf*, *Healing Vanity*, and *Sweet Bakery* themes, plus a deterministic **Daily Mystery Challenge** (`FNV-1a` + `LCG` PRNG).
+- **🍰 4 Cozy Themes · 16 Single-Player Levels (4–10 Shelves) · Daily Seed Challenge**: Features *Convenience Store Fridge*, *Cat Cafe Shelf*, *Healing Vanity*, and *Sweet Bakery* themes scaling from 4 shelves up to **8-shelf and 10-shelf mega stages**, plus a deterministic **Daily Mystery Challenge** (`FNV-1a` + `LCG` PRNG).
 - **💰 In-Game Coin Economy & Expandable Temp Tray**: Earn coins to expand the temporary tray (`+1` to `+4` slots) or buy Undo, Expand, Shuffle, and Smart Hint boosters.
 - **🏆 Personal Best (PB) Records, Manager Ladder & Achievements**: Tracks best moves, fastest clear time, 3-star ratings, and **👑 No-Booster Gold Crowns** locally via `localStorage`.
 - **🎵 Zero-Dependency Web Audio Synth**: All sound effects are synthesized in real time using the native browser `Web Audio API`.
